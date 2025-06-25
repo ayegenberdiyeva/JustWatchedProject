@@ -1,0 +1,167 @@
+# FilmLog AI Backend - Cursor Rules
+
+## Project Overview
+This is a Python (FastAPI) backend service for FilmLog AI. It handles business logic, serves data to the iOS client, and integrates with Firebase and the OpenAI Assistants API.
+
+- **Platform**: Backend Service
+- **Framework**: FastAPI
+- **Architecture**: Layered (API → Services → Agents → Data Access)
+- **Language**: Python 3.11+
+- **Database**: Firestore (Primary), Redis (Cache/Broker)
+
+## Architecture & Framework Requirements
+- **Architecture**: Layered (API → Services → Agents → Data Access). Strict separation of concerns.
+- **Framework**: FastAPI
+- **Language**: Python 3.11+
+- **Concurrency**: Use `async/await` for all I/O-bound tasks. Use Celery with Redis for long-running or CPU-bound background jobs (e.g., AI analysis, report generation).
+
+## Code Style & Best Practices
+
+### FastAPI & Pydantic
+- All API endpoints must be defined with `async def`.
+- Use Pydantic models (in `app/schemas/`) for request validation and as `response_model`.
+- Use FastAPI's dependency injection (`Depends`) for services, DB sessions, and authentication.
+
+```python
+# Example Endpoint (app/api/v1/endpoints/films.py)
+from fastapi import APIRouter, Depends, HTTPException
+from app.schemas.film import Film
+from app.services.film_service import FilmService
+from app.core.security import get_current_user
+
+router = APIRouter()
+
+@router.get("/{film_id}", response_model=Film)
+async def get_film_details(
+    film_id: str,
+    film_service: FilmService = Depends(),
+    # current_user: User = Depends(get_current_user)  # Optional: if protected
+):
+    film = await film_service.get_by_id(film_id)
+    if not film:
+        raise HTTPException(status_code=404, detail="Film not found")
+    return film
+```
+
+### Service Layer
+- Encapsulate all business logic in service classes (`app/services/`).
+- Services coordinate data access and external system interactions. Prefer stateless services.
+
+```python
+# Example Service (app/services/recommendation_service.py)
+from app.agents.openai_agent import OpenAIAgent
+from app.crud.user_crud import UserCRUD
+
+class RecommendationService:
+    def __init__(self, openai_agent: OpenAIAgent = OpenAIAgent(), user_crud: UserCRUD = UserCRUD()):
+        self.openai_agent = openai_agent
+        self.user_crud = user_crud
+
+    async def get_recommendations_for_user(self, user_id: str) -> dict:
+        watch_history = await self.user_crud.get_watch_history(user_id)
+        generate_recommendations_task.delay(user_id, watch_history)
+        return {"status": "processing", "message": "Recommendations are being generated."}
+```
+
+### AI Agent Layer
+- Isolate all third-party API interactions (e.g., OpenAI) in agent classes (`app/agents/`).
+- This simplifies mocking and centralizes API management.
+
+```python
+# Example Agent (app/agents/openai_agent.py)
+import openai
+from app.core.config import settings
+
+class OpenAIAgent:
+    def __init__(self):
+        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+    async def generate_film_recommendations(self, user_id: str, watch_history: list):
+        # ... logic to interact with OpenAI Assistants API ...
+        pass
+```
+
+## Project Structure
+
+```
+fastapi-app/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── endpoints/ (e.g., auth.py, films.py, recommendations.py)
+│   │       └── api.py (Main API router)
+│   ├── schemas/ (Pydantic models)
+│   ├── services/ (Business logic)
+│   ├── agents/ (Third-party API clients)
+│   ├── core/ (Config, security, dependencies)
+│   ├── crud/ (Firestore data access)
+│   └── main.py (FastAPI app instance)
+├── tasks/ (Celery background tasks)
+└── tests/ (Pytest tests)
+```
+
+## Authentication Flow
+- The backend manages user sessions via custom JWTs after verifying Firebase identity.
+- **Flow:**
+    1. Client authenticates with Firebase and gets a Firebase ID Token.
+    2. Client sends this ID token to `/api/v1/auth/login`.
+    3. Backend verifies the ID token with Firebase Admin SDK.
+    4. If valid, backend creates a custom JWT (user ID, role, short expiry).
+    5. Backend returns the JWT to the client for subsequent requests.
+
+## General Guidelines
+
+### Dependencies
+- Use `requirements.txt` for package management.
+- **Key Dependencies:**
+    - fastapi
+    - uvicorn
+    - celery & redis
+    - firebase-admin
+    - openai
+    - pydantic[email]
+    - python-jose[cryptography]
+
+### API & Security
+- Pydantic schemas in `app/schemas/` are the API contract source of truth.
+- Health check endpoint: `GET /healthcheck` (returns `{ "status": "healthy", "database": "connected" }`)
+- Store all sensitive keys outside version control. Use `.env` and Pydantic `BaseSettings`.
+- HTTPS is mandatory in production.
+
+### Testing
+- Use `pytest` for unit and integration tests.
+- Mock all external dependencies in unit tests.
+- Use FastAPI's `TestClient` for integration tests.
+
+## Error Handling
+- Use FastAPI's exception handling (`HTTPException`, custom exception handlers).
+- Return clear error messages and status codes.
+- Log errors for debugging.
+
+## Performance Guidelines
+- Use async I/O for all database and network operations.
+- Use Redis for caching and as a Celery broker.
+- Offload long-running tasks to Celery workers.
+
+## Security Guidelines
+- Store secrets in `.env` and never commit them.
+- Use HTTPS for all communications.
+- Validate all user inputs with Pydantic.
+- Use JWTs for authentication and authorization.
+- Regularly update dependencies to patch vulnerabilities.
+
+## Dependencies Management
+- Use `requirements.txt` for all dependencies.
+- Document third-party dependencies and their purposes in `README.md`.
+
+## Code Review Checklist
+- [ ] Follows Layered Architecture (API → Services → Agents → Data Access)
+- [ ] All endpoints are async and use Pydantic models
+- [ ] Business logic is in service classes
+- [ ] Third-party API calls are isolated in agent classes
+- [ ] Proper error handling and logging
+- [ ] Sensitive data is not committed
+- [ ] Includes unit and integration tests
+- [ ] Uses dependency injection for services and DB
+- [ ] Follows naming conventions and code style
+- [ ] Has proper documentation 
