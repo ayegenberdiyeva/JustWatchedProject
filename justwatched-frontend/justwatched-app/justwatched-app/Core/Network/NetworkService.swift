@@ -64,11 +64,15 @@ class NetworkService {
     
     func fetchProfile() async throws -> UserProfile {
         let (data, response) = try await authorizedRequest("/users/me")
-        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 || httpResponse.statusCode == 403 {
+                await MainActor.run {
+                    AuthManager.shared.signOut()
+                    AppState.shared.isAuthenticated = false
+                }
+            }
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
-        
         return try JSONDecoder().decode(UserProfile.self, from: data)
     }
     
@@ -194,7 +198,20 @@ class NetworkService {
 
     func getCurrentUserProfile(jwt: String) async throws -> UserProfile {
         let url = URL(string: baseURL + "/users/me")!
-        return try await get(url: url, jwt: jwt)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 || httpResponse.statusCode == 403 {
+                await MainActor.run {
+                    AuthManager.shared.signOut()
+                    AppState.shared.isAuthenticated = false
+                }
+            }
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(UserProfile.self, from: data)
     }
 
     func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?, avatarUrl: String?) async throws -> UserProfile {

@@ -3,65 +3,45 @@ import SwiftUI
 struct AddReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = AddReviewViewModel()
-    @State private var rating: Int = 0
-    @State private var reviewText: String = ""
-    @State private var movieTitle: String
-    @State private var movieId: String
-    @State private var showMovieSearch: Bool
     @State private var showError = false
     
     // Callback to notify parent of successful review addition
     var onReviewAdded: (() -> Void)?
     
-    init(movieId: String = "", movieTitle: String = "", showMovieSearch: Bool = false, onReviewAdded: (() -> Void)? = nil) {
-        _movieId = State(initialValue: movieId)
-        _movieTitle = State(initialValue: movieTitle)
-        _showMovieSearch = State(initialValue: showMovieSearch)
-        self.onReviewAdded = onReviewAdded
-    }
-    
     var body: some View {
         NavigationView {
-            Form {
-                movieSection
-                ratingSection
-                reviewSection
+            VStack(spacing: 0) {
+                searchBar
+                if viewModel.selectedMovie == nil {
+                    searchResultsList
+                } else {
+                    reviewForm
+                }
             }
             .navigationTitle("Add Review")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        Task {
-                            await viewModel.submitReview(
-                                movieId: movieId,
-                                rating: rating,
-                                content: reviewText
-                            )
-                            if viewModel.success {
-                                dismiss()
+                    if viewModel.selectedMovie != nil {
+                        Button("Save") {
+                            Task {
+                                await viewModel.submitReview()
+                                if viewModel.success {
+                                    onReviewAdded?()
+                                    dismiss()
+                                }
+                            }
+                        }
+                        .disabled(viewModel.rating == 0 || viewModel.isLoading)
+                        .overlay {
+                            if viewModel.isLoading {
+                                ProgressView().scaleEffect(0.8)
                             }
                         }
                     }
-                    .disabled(movieId.isEmpty || rating == 0 || viewModel.isLoading)
-                    .overlay {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showMovieSearch) {
-                SearchResultsView { selectedMovie in
-                    movieId = selectedMovie.id
-                    movieTitle = selectedMovie.title
-                    showMovieSearch = false
                 }
             }
             .alert("Error", isPresented: $showError) {
@@ -75,54 +55,123 @@ struct AddReviewView: View {
             .onChange(of: viewModel.error) {
                 showError = viewModel.error != nil
             }
-            .onChange(of: viewModel.success) { success in
-                if success {
-                    onReviewAdded?() // Notify parent of successful review addition
-                    dismiss()
-                }
-            }
         }
     }
 
-    private var movieSection: some View {
-        Section(header: Text("Movie")) {
-            HStack {
-                Text(movieTitle.isEmpty ? "Select a movie" : movieTitle)
-                    .foregroundColor(movieTitle.isEmpty ? .gray : .primary)
-                Spacer()
-                Button(action: { showMovieSearch = true }) {
-                    Image(systemName: "magnifyingglass")
+    private var searchBar: some View {
+        HStack {
+            TextField("Search for a movie...", text: $viewModel.searchText)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+                .onChange(of: viewModel.searchText) {
+                    Task { await viewModel.searchMovies() }
                 }
+            if viewModel.selectedMovie != nil {
+                Button(action: {
+                    viewModel.selectedMovie = nil
+                    viewModel.searchText = ""
+                    viewModel.searchResults = []
+                }) {
+                    Text("Change Movie")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                .padding(.trailing)
             }
         }
+        .padding(.vertical, 8)
     }
 
-    private var ratingSection: some View {
-        Section(header: Text("Rating")) {
+    private var searchResultsList: some View {
+        List(viewModel.searchResults, id: \.id) { movie in
+            Button(action: {
+                viewModel.selectedMovie = movie
+                viewModel.searchText = movie.title
+            }) {
+                HStack(spacing: 12) {
+                    if let posterPath = movie.posterPath {
+                        AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(posterPath)")) { image in
+                            image.resizable()
+                        } placeholder: {
+                            Color.gray.opacity(0.2)
+                        }
+                        .frame(width: 40, height: 60)
+                        .cornerRadius(6)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(movie.title)
+                            .font(.headline)
+                        if let releaseDate = movie.releaseDate, !releaseDate.isEmpty {
+                            Text(String(releaseDate.prefix(4)))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        if let overview = movie.overview, !overview.isEmpty {
+                            Text(overview)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private var reviewForm: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let movie = viewModel.selectedMovie {
+                HStack(alignment: .top, spacing: 12) {
+                    if let posterPath = movie.posterPath {
+                        AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(posterPath)")) { image in
+                            image.resizable()
+                        } placeholder: {
+                            Color.gray.opacity(0.2)
+                        }
+                        .frame(width: 40, height: 60)
+                        .cornerRadius(6)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(movie.title)
+                            .font(.headline)
+                        if let releaseDate = movie.releaseDate, !releaseDate.isEmpty {
+                            Text(String(releaseDate.prefix(4)))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            Text("Your Rating")
+                .font(.subheadline)
             HStack {
                 ForEach(1...5, id: \.self) { index in
-                    Image(systemName: index <= rating ? "star.fill" : "star")
+                    Image(systemName: index <= viewModel.rating ? "star.fill" : "star")
                         .foregroundColor(.yellow)
                         .onTapGesture {
-                            rating = index
+                            viewModel.rating = index
                         }
                 }
             }
-        }
-    }
-
-    private var reviewSection: some View {
-        Section(header: Text("Review")) {
-            TextEditor(text: $reviewText)
+            Text("Your Review")
+                .font(.subheadline)
+            TextEditor(text: $viewModel.reviewText)
                 .frame(height: 100)
                 .accessibilityLabel("Review text")
                 .accessibilityHint("Write your review of the movie")
                 .autocapitalization(.sentences)
                 .disableAutocorrection(false)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2)))
         }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .padding()
     }
 }
 
 #Preview {
-    AddReviewView(movieId: "1", movieTitle: "Inception")
+    AddReviewView()
 } 

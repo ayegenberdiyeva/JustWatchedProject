@@ -16,12 +16,12 @@ struct WelcomeView: View {
                             .font(.system(size: 80))
                             .foregroundColor(.themeAccentYellow)
                         
-                        Text("FilmLog AI")
+                        Text("JustWatched")
                             .font(.largeTitle)
                             .bold()
                             .foregroundColor(.themeNeutralLight)
                         
-                        Text("Your personal movie companion")
+                        Text("Your social movie diary")
                             .font(.title3)
                             .foregroundColor(.themeNeutralLight.opacity(0.7))
                     }

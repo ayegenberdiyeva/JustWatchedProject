@@ -44,15 +44,11 @@ struct ProfileView: View {
                 EditProfileView(viewModel: EditProfileViewModel(profileViewModel: viewModel))
             }
             .sheet(isPresented: $showAddReview) {
-                AddReviewView(
-                    movieId: "", 
-                    movieTitle: "",
-                    onReviewAdded: {
-                        Task {
-                            await viewModel.fetchProfile()
-                        }
+                AddReviewView(onReviewAdded: {
+                    Task {
+                        await viewModel.fetchProfile()
                     }
-                )
+                })
             }
             .task {
                 await viewModel.fetchProfile()
