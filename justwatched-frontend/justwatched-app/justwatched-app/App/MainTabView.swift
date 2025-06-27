@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @State private var showAddReview = false
+
     var body: some View {
         TabView {
             HomeView()
@@ -11,6 +13,11 @@ struct MainTabView: View {
             SearchResultsView()
                 .tabItem {
                     Label("Search", systemImage: "magnifyingglass")
+                }
+            
+            AddReviewView()
+                .tabItem {
+                    Label("Add Review", systemImage: "plus")
                 }
             
             LobbyView()

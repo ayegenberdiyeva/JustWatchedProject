@@ -27,19 +27,23 @@ class ProfileViewModel: ObservableObject {
     }
     
     func fetchProfile() async {
+        print("ProfileViewModel.fetchProfile called")
         isLoading = true
         error = nil
         
         do {
             // Always fetch fresh profile from AuthManager
             try await authManager.refreshUserProfile()
+            print("refreshUserProfile succeeded")
             self.userProfile = authManager.userProfile
             self.displayName = userProfile?.displayName ?? ""
             self.email = userProfile?.email ?? ""
             
             // Fetch reviews
-            self.reviews = try await networkService.fetchUserReviews()
+            let fetchedReviews = try await networkService.fetchUserReviews()
+            self.reviews = fetchedReviews
         } catch {
+            print("Error in fetchProfile: \(error)")
             self.error = error
         }
         

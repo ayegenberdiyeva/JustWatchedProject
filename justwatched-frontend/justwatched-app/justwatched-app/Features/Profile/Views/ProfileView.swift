@@ -14,17 +14,13 @@ struct ProfileView: View {
                         profileHeader
                         statsCard
                         actionButtons
-                        addReviewButton
                         reviewsList
                     }
                     .padding(.top)
                 }
-                .refreshable {
-                    await viewModel.fetchProfile()
-                }
             }
             .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.themePrimaryDark, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -36,6 +32,8 @@ struct ProfileView: View {
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
+                            .resizable()
+//                            .frame(width: 20, height: 20)
                             .foregroundColor(.themeAccentYellow)
                     }
                 }
@@ -52,26 +50,6 @@ struct ProfileView: View {
             }
             .task {
                 await viewModel.fetchProfile()
-            }
-            .onAppear {
-                // Refresh profile when view appears
-                Task {
-                    await viewModel.fetchProfile()
-                }
-            }
-            .onChange(of: showEditProfile) {
-                if !showEditProfile {
-                    Task {
-                        await viewModel.fetchProfile()
-                    }
-                }
-            }
-            .onChange(of: showAddReview) {
-                if !showAddReview {
-                    Task {
-                        await viewModel.fetchProfile()
-                    }
-                }
             }
         }
     }
@@ -119,16 +97,26 @@ struct ProfileView: View {
     
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            Button(action: { showEditProfile = true }) {
-                Label("Edit Profile", systemImage: "pencil")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.themeAccentYellow)
-                    .foregroundColor(.themePrimaryDark)
-                    .cornerRadius(16)
+            HStack(spacing: 12) {
+                Button(action: { showEditProfile = true }) {
+                    Label("Edit Profile", systemImage: "pencil")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.themeAccentYellow)
+                        .foregroundColor(.themePrimaryDark)
+                        .cornerRadius(16)
+                }
+                Button(action: { showAddReview = true }) {
+                    Label("Add Review", systemImage: "plus")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.themeAccentYellow.opacity(0.15))
+                        .foregroundColor(.themeAccentYellow)
+                        .cornerRadius(16)
+                }
             }
-            
             Button(action: { AuthManager.shared.signOut() }) {
                 Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
@@ -142,26 +130,39 @@ struct ProfileView: View {
         .padding(.horizontal)
     }
     
-    private var addReviewButton: some View {
-        Button(action: { showAddReview = true }) {
-            Label("Add Review", systemImage: "plus")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.themeAccentYellow.opacity(0.15))
-                .foregroundColor(.themeAccentYellow)
-                .cornerRadius(16)
-        }
-        .padding(.horizontal)
-    }
-    
     private var reviewsList: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Your Reviews")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(.themeNeutralLight)
                 .padding(.bottom, 4)
-            if viewModel.reviews.isEmpty {
+            
+            if viewModel.isLoading {
+                HStack {
+                    ProgressView()
+                        .tint(.themeAccentYellow)
+                    Text("Loading reviews...")
+                        .foregroundColor(.themeAccentYellow.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+            } else if let error = viewModel.error {
+                VStack(spacing: 8) {
+                    Text("Error loading reviews")
+                        .foregroundColor(.red)
+                    Text(error.localizedDescription)
+                        .foregroundColor(.red.opacity(0.7))
+                        .font(.caption)
+                    Button("Retry") {
+                        Task {
+                            await viewModel.fetchProfile()
+                        }
+                    }
+                    .foregroundColor(.themeAccentYellow)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+            } else if viewModel.reviews.isEmpty {
                 Text("No reviews yet.")
                     .foregroundColor(.themeAccentYellow.opacity(0.7))
                     .padding(.top, 8)
@@ -194,28 +195,66 @@ struct ProfileView: View {
 
 struct ReviewCard: View {
     let review: Review
+    @State private var isExpanded = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Movie: \(review.movieTitle)")
-                    .font(.headline)
-                    .foregroundColor(Color("PrimaryText"))
-                Spacer()
-                Text("\(review.rating)/5")
-                    .font(.subheadline)
-                    .foregroundColor(Color("PrimaryAccent"))
+        HStack(alignment: .top, spacing: 12) {
+            if let posterPath = review.posterPath {
+                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(posterPath)")) { image in
+                    image.resizable()
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(width: 40, height: 60)
+                .cornerRadius(6)
             }
-            
-            if let content = review.content {
-                Text(content)
-                    .font(.subheadline)
-                    .foregroundColor(Color("PrimaryAccent").opacity(0.7))
-                    .lineLimit(3)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Movie: \(review.movieTitle)")
+                        .font(.headline)
+                        .foregroundColor(.themeNeutralLight)
+                    Spacer()
+                    Text("\(review.rating)/5")
+                        .font(.subheadline)
+                        .foregroundColor(.themeAccentYellow)
+                }
+                
+                if let content = review.content, !content.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(content)
+                            .font(.subheadline)
+                            .foregroundColor(.themeNeutralLight.opacity(0.7))
+                            .lineLimit(isExpanded ? nil : 2)
+                            .animation(.easeInOut(duration: 0.2), value: isExpanded)
+                        
+                        if content.count > 100 {
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isExpanded.toggle()
+                                }
+                            }) {
+                                Text(isExpanded ? "Show less" : "Read more")
+                                    .font(.caption)
+                                    .foregroundColor(.themeAccentYellow)
+                                    .padding(.top, 2)
+                            }
+                        }
+                    }
+                }
+                
+                HStack {
+                    Text("Watched: \(review.watchedDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")")
+                        .font(.caption)
+                        .foregroundColor(.themeAccentYellow.opacity(0.6))
+                    Spacer()
+                    Text("Added: \(review.createdAt.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.caption)
+                        .foregroundColor(.themeAccentYellow.opacity(0.6))
+                }
             }
         }
         .padding()
-        .background(Color("CardBackground"))
+        .background(Color.themePrimaryDark.opacity(0.3))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
     }
@@ -224,3 +263,4 @@ struct ReviewCard: View {
 #Preview {
     ProfileView()
 }
+ 

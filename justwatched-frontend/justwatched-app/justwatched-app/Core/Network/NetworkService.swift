@@ -94,6 +94,7 @@ class NetworkService {
     }
     
     func fetchUserReviews() async throws -> [Review] {
+        print("NetworkService.fetchUserReviews called")
         let (data, response) = try await authorizedRequest("/users/me/reviews")
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
@@ -102,7 +103,12 @@ class NetworkService {
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode([Review].self, from: data)
+        do {
+            let reviews = try decoder.decode([Review].self, from: data)
+            return reviews
+        } catch {
+            throw NetworkError.decodingFailed(error)
+        }
     }
     
     func postReview(review: ReviewRequest) async throws {
@@ -284,3 +290,4 @@ class NetworkService {
         }
     }
 }
+ 

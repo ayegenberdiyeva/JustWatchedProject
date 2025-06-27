@@ -17,6 +17,7 @@ class ReviewCRUD:
         # Update the document to set the correct review_id
         await run_in_threadpool(lambda: self.reviews_col.document(review_id).update({"review_id": review_id}))
         data["review_id"] = review_id
+        # Ensure movie_title and poster_path are included in the returned data
         return data
 
     async def get_review_by_id(self, review_id: str) -> Dict[str, Any]:

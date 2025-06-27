@@ -83,6 +83,7 @@ struct SearchResultsView: View {
 
 struct MovieDetailView: View {
     let movie: MovieSearchResult
+    @State private var showAddReview = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -109,9 +110,22 @@ struct MovieDetailView: View {
                         .font(.body)
                         .padding(.top, 8)
                 }
+                Button(action: { showAddReview = true }) {
+                    Label("Add Review", systemImage: "plus")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(12)
+                }
+                .padding(.top, 16)
                 Spacer()
             }
             .padding()
+        }
+        .sheet(isPresented: $showAddReview) {
+            AddReviewView(selectedMovie: movie)
         }
     }
 }

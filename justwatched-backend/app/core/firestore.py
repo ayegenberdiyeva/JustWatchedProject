@@ -12,6 +12,7 @@ _executor = ThreadPoolExecutor()
 def get_firestore_client():
     if not firebase_admin._apps:
         cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "./firebase-key.json")
+        # cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         cred_path = Path(cred_path)
         if not cred_path.is_absolute():
             # Resolve relative to project root (where main.py is run)

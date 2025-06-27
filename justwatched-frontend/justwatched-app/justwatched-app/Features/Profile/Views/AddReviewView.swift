@@ -2,11 +2,22 @@ import SwiftUI
 
 struct AddReviewView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel = AddReviewViewModel()
+    @StateObject private var viewModel: AddReviewViewModel
     @State private var showError = false
+    @State private var showSuccess = false
     
     // Callback to notify parent of successful review addition
     var onReviewAdded: (() -> Void)?
+    
+    init(selectedMovie: MovieSearchResult? = nil, onReviewAdded: (() -> Void)? = nil) {
+        let viewModel = AddReviewViewModel()
+        if let movie = selectedMovie {
+            viewModel.selectedMovie = movie
+            viewModel.searchText = movie.title
+        }
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.onReviewAdded = onReviewAdded
+    }
     
     var body: some View {
         NavigationView {
@@ -30,8 +41,13 @@ struct AddReviewView: View {
                             Task {
                                 await viewModel.submitReview()
                                 if viewModel.success {
-                                    onReviewAdded?()
-                                    dismiss()
+                                    // Reset all fields after successful save
+                                    viewModel.selectedMovie = nil
+                                    viewModel.rating = 0
+                                    viewModel.reviewText = ""
+                                    viewModel.searchText = ""
+                                    viewModel.searchResults = []
+                                    showSuccess = true
                                 }
                             }
                         }
@@ -55,6 +71,14 @@ struct AddReviewView: View {
             .onChange(of: viewModel.error) {
                 showError = viewModel.error != nil
             }
+            .alert("Success", isPresented: $showSuccess) {
+                Button("OK") {
+                    onReviewAdded?()
+                    dismiss()
+                }
+            } message: {
+                Text("Your review was saved successfully.")
+            }
         }
     }
 
@@ -71,6 +95,8 @@ struct AddReviewView: View {
                     viewModel.selectedMovie = nil
                     viewModel.searchText = ""
                     viewModel.searchResults = []
+                    viewModel.rating = 0
+                    viewModel.reviewText = ""
                 }) {
                     Text("Change Movie")
                         .font(.caption)
@@ -175,3 +201,4 @@ struct AddReviewView: View {
 #Preview {
     AddReviewView()
 } 
+ 
