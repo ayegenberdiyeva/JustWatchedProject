@@ -2,7 +2,10 @@ import SwiftUI
 
 struct HomeView: View {
     var body: some View {
-        Text("HomeView")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Text("HomeView")
+        }
     }
 }
 

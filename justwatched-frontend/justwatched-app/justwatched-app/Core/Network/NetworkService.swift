@@ -76,37 +76,46 @@ class NetworkService {
         return try JSONDecoder().decode(UserProfile.self, from: data)
     }
     
-    func updateProfile(displayName: String?, email: String?, bio: String?, avatarUrl: String?) async throws {
+    func updateProfile(displayName: String?, email: String?, bio: String?, avatarUrl: String?, color: String?) async throws {
         let parameters: [String: Any?] = [
             "display_name": displayName,
             "email": email,
             "bio": bio,
-            "avatar_url": avatarUrl
+            "avatar_url": avatarUrl,
+            "color": color
         ]
-        
         let jsonData = try JSONSerialization.data(withJSONObject: parameters.compactMapValues { $0 })
-        
         let (_, response) = try await authorizedRequest("/users/me", method: "PATCH", body: jsonData)
-        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
     }
     
     func fetchUserReviews() async throws -> [Review] {
-        print("NetworkService.fetchUserReviews called")
         let (data, response) = try await authorizedRequest("/users/me/reviews")
-        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
-        
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         do {
             let reviews = try decoder.decode([Review].self, from: data)
             return reviews
         } catch {
+            if let decodingError = error as? DecodingError {
+                switch decodingError {
+                case .keyNotFound(let key, let context):
+                    break
+                case .typeMismatch(let type, let context):
+                    break
+                case .valueNotFound(let type, let context):
+                    break
+                case .dataCorrupted(let context):
+                    break
+                @unknown default:
+                    break
+                }
+            }
             throw NetworkError.decodingFailed(error)
         }
     }
@@ -152,30 +161,6 @@ class NetworkService {
         return try JSONDecoder().decode([Movie].self, from: data)
     }
 
-    // New TMDB-style search for MovieSearchResult
-    func searchMoviesV2(query: String) async throws -> [MovieSearchResult] {
-        guard var urlComponents = URLComponents(string: baseURL + "/movies/search") else {
-            throw NetworkError.invalidURL
-        }
-        urlComponents.queryItems = [
-            URLQueryItem(name: "query", value: query)
-        ]
-        guard let url = urlComponents.url else {
-            throw NetworkError.invalidURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        if let token = authManager.jwt {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
-        }
-        let decoded = try JSONDecoder().decode(MovieSearchResponse.self, from: data)
-        return decoded.results
-    }
-
     // MARK: - Auth
     func register(email: String, password: String) async throws -> AuthResponse {
         let url = URL(string: baseURL + "/auth/register")!
@@ -190,7 +175,7 @@ class NetworkService {
     }
 
     func requestPasswordReset(email: String) async throws {
-        let url = URL(string: baseURL + "/auth/reset-password")!
+        let url = URL(string: baseURL + "/auth/request-password-reset")!
         let body = ["email": email]
         let _: EmptyResponse = try await post(url: url, body: body)
     }
@@ -217,7 +202,8 @@ class NetworkService {
             }
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
-        return try JSONDecoder().decode(UserProfile.self, from: data)
+        let profile = try JSONDecoder().decode(UserProfile.self, from: data)
+        return profile
     }
 
     func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?, avatarUrl: String?) async throws -> UserProfile {
@@ -236,6 +222,68 @@ class NetworkService {
     func getMyReviews(jwt: String) async throws -> [Review] {
         let url = URL(string: baseURL + "/users/me/reviews")!
         return try await get(url: url, jwt: jwt)
+    }
+
+    // MARK: - Search History
+    func fetchSearchHistory(limit: Int = 5, offset: Int = 0) async throws -> ([SearchHistoryEntry], Bool) {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        var urlComponents = URLComponents(string: baseURL + "/search-history")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "limit", value: "\(limit)"),
+            URLQueryItem(name: "offset", value: "\(offset)")
+        ]
+        var request = URLRequest(url: urlComponents.url!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            var dateStr = try container.decode(String.self)
+            // Truncate microseconds to milliseconds if needed
+            if let dotRange = dateStr.range(of: ".") {
+                let start = dotRange.upperBound
+                let afterDot = dateStr[start...]
+                let digits = afterDot.prefix(while: { $0.isNumber })
+                if digits.count > 3 {
+                    let ms = digits.prefix(3)
+                    let rest = afterDot.dropFirst(digits.count)
+                    dateStr = String(dateStr[..<start]) + ms + rest
+                }
+            }
+            // Add 'Z' if missing
+            if !dateStr.hasSuffix("Z") {
+                dateStr += "Z"
+            }
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoFormatter.date(from: dateStr) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date: \(dateStr)")
+        }
+        do {
+            let result = try decoder.decode(SearchHistoryResponse.self, from: data)
+            return (result.searches, result.hasMore)
+        } catch {
+            throw error
+        }
+    }
+
+    func deleteSearchHistoryEntry(id: String) async throws {
+        let (_, response) = try await authorizedRequest("/search_history/\(id)", method: "DELETE")
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+
+    func clearSearchHistory() async throws {
+        let (_, response) = try await authorizedRequest("/search_history", method: "DELETE")
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
     }
 
     // MARK: - Generic Helpers
@@ -287,6 +335,37 @@ class NetworkService {
             } else {
                 throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
             }
+        }
+    }
+
+    func searchMoviesOrTV(query: String, searchType: String) async throws -> [SearchResult] {
+        guard var urlComponents = URLComponents(string: baseURL + "/movies/search") else {
+            throw NetworkError.invalidURL
+        }
+        urlComponents.queryItems = [
+            URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "search_type", value: searchType)
+        ]
+        guard let url = urlComponents.url else {
+            throw NetworkError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let token = authManager.jwt {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        if searchType == "movie" {
+            let decoded = try JSONDecoder().decode(MovieSearchResponse.self, from: data)
+            return decoded.results.map { .movie($0) }
+        } else if searchType == "tv" {
+            let decoded = try JSONDecoder().decode(TVShowSearchResponse.self, from: data)
+            return decoded.results.map { .tvShow($0) }
+        } else {
+            return []
         }
     }
 }

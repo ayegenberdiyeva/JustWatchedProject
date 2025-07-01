@@ -1,88 +1,189 @@
 import SwiftUI
+import Foundation
+
+struct SearchType: Identifiable, Hashable {
+    let id: String
+    let label: String
+    let value: String
+    
+    init(label: String, value: String) {
+        self.label = label
+        self.value = value
+        self.id = value
+    }
+}
 
 struct SearchResultsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = SearchResultsViewModel()
     @State private var searchText = ""
-    @State private var selectedMovie: MovieSearchResult? = nil
+    
+    let searchTypes: [SearchType] = [
+        SearchType(label: "Movies", value: "movie"),
+        SearchType(label: "TV Shows", value: "tv")
+    ]
     
     var body: some View {
-        NavigationView {
-            List {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if !viewModel.movies.isEmpty {
-                    ForEach(viewModel.movies) { movie in
-                        Button(action: { selectedMovie = movie }) {
-                            HStack(alignment: .top, spacing: 12) {
-                                if let posterPath = movie.posterPath {
-                                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w200\(posterPath)")) { image in
-                                        image.resizable()
-                                    } placeholder: {
-                                        Color.gray.opacity(0.2)
-                                    }
-                                    .frame(width: 60, height: 90)
-                                    .cornerRadius(8)
-                                } else {
-                                    Color.gray.opacity(0.2)
-                                        .frame(width: 60, height: 90)
-                                        .cornerRadius(8)
-                                }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(movie.title)
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    if let releaseDate = movie.releaseDate, !releaseDate.isEmpty {
-                                        Text(String(releaseDate.prefix(4)))
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    if let overview = movie.overview, !overview.isEmpty {
-                                        Text(overview)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(3)
+        ZStack {
+            Color.black.ignoresSafeArea()
+            NavigationView {
+                VStack(spacing: 0) {
+                    Picker("Search Type", selection: $viewModel.searchType) {
+                        ForEach(searchTypes) { type in
+                            Text(type.label).tag(type.value)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.horizontal)
+                    .padding(.bottom, 10)
+                    .onChange(of: viewModel.searchType) { oldValue, newValue in
+                        if !searchText.isEmpty {
+                            Task { await viewModel.searchMovies(query: searchText) }
+                        }
+                    }
+                    if searchText.isEmpty {
+                        if viewModel.searchHistory.isEmpty {
+                            Spacer()
+                            Text("No search history found.")
+                                .foregroundColor(Color(hex: "393B3D"))
+                                .font(.subheadline)
+                            Spacer()
+                        } else {
+                            List {
+                                Section(header: Text("Recent Searches")) {
+                                    ForEach(viewModel.searchHistory) { entry in
+                                        HStack {
+                                            Image(systemName: "magnifyingglass")
+                                                .foregroundColor(Color(hex: "393B3D"))
+                                            Text(entry.query)
+                                                .foregroundColor(.white)
+                                            Spacer()
+                                            Text(entry.searchType.capitalized)
+                                                .foregroundColor(Color(hex: "393B3D"))
+                                        }
+                                        .padding(.vertical, 4)
                                     }
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .listStyle(.plain)
+                        }
+                    } else {
+                        List {
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            } else if !viewModel.results.isEmpty {
+                                ForEach(viewModel.results) { result in
+                                    NavigationLink(destination: {
+                                        switch result {
+                                        case .movie(let movie):
+                                            MovieDetailCard(movie: movie)
+                                        case .tvShow(let show):
+                                            TVShowDetailCard(show: show)
+                                        }
+                                    }) {
+                                        switch result {
+                                        case .movie(let movie):
+                                            HStack(alignment: .top, spacing: 12) {
+                                                if let posterPath = movie.posterPath {
+                                                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w200\(posterPath)")) { image in
+                                                        image.resizable()
+                                                    } placeholder: {
+                                                        Color.gray.opacity(0.2)
+                                                    }
+                                                    .frame(width: 60, height: 90)
+                                                    .cornerRadius(8)
+                                                } else {
+                                                    Color.gray.opacity(0.2)
+                                                        .frame(width: 60, height: 90)
+                                                        .cornerRadius(8)
+                                                }
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(movie.title)
+                                                        .font(.headline)
+                                                        .foregroundColor(.white)
+                                                    if let releaseDate = movie.releaseDate, !releaseDate.isEmpty {
+                                                        Text(String(releaseDate.prefix(4)))
+                                                            .font(.subheadline)
+                                                            .foregroundColor(Color(hex: "393B3D"))
+                                                    }
+                                                    if let overview = movie.overview, !overview.isEmpty {
+                                                        Text(overview)
+                                                            .font(.caption)
+                                                            .foregroundColor(Color(hex: "393B3D"))
+                                                            .lineLimit(3)
+                                                    }
+                                                }
+                                            }
+                                            .padding(.vertical, 4)
+                                        case .tvShow(let show):
+                                            HStack(alignment: .top, spacing: 12) {
+                                                if let posterPath = show.posterPath {
+                                                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w200\(posterPath)")) { image in
+                                                        image.resizable()
+                                                    } placeholder: {
+                                                        Color.gray.opacity(0.2)
+                                                    }
+                                                    .frame(width: 60, height: 90)
+                                                    .cornerRadius(8)
+                                                } else {
+                                                    Color.gray.opacity(0.2)
+                                                        .frame(width: 60, height: 90)
+                                                        .cornerRadius(8)
+                                                }
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(show.name)
+                                                        .font(.headline)
+                                                        .foregroundColor(.white)
+                                                    if let firstAirDate = show.firstAirDate, !firstAirDate.isEmpty {
+                                                        Text(String(firstAirDate.prefix(4)))
+                                                            .font(.subheadline)
+                                                            .foregroundColor(Color(hex: "393B3D"))
+                                                    }
+                                                    if let overview = show.overview, !overview.isEmpty {
+                                                        Text(overview)
+                                                            .font(.caption)
+                                                            .foregroundColor(Color(hex: "393B3D"))
+                                                            .lineLimit(3)
+                                                    }
+                                                }
+                                            }
+                                            .padding(.vertical, 4)
+                                        }
+                                    }
+                                }
+                            } else if !searchText.isEmpty {
+                                Text("No results found")
+                                    .foregroundColor(Color(hex: "393B3D"))
+                            }
+                        }
+                        .listStyle(.plain)
+                    }
+                }
+                .navigationTitle("Search")
+                .navigationBarTitleDisplayMode(.inline)
+                .searchable(text: $searchText, prompt: "Search for movies or shows")
+                .onChange(of: searchText) { oldValue, newValue in
+                    Task { await viewModel.searchMovies(query: newValue) }
+                }
+                .onAppear {
+                    Task { await viewModel.fetchSearchHistory() }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            dismiss()
                         }
                     }
-                } else if !searchText.isEmpty {
-                    Text("No movies found")
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
-            .navigationTitle("Search Movies")
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Search for movies")
-                .textInputAutocapitalization(.never)
-                .disableAutocorrection(true)
-                .accessibilityLabel("Search movies")
-                .accessibilityHint("Enter movie title to search")
-                .onChange(of: searchText) {
-                    Task {
-                        await viewModel.searchMovies(query: searchText)
-                    }
-                }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
-            .sheet(item: $selectedMovie) { movie in
-                MovieDetailView(movie: movie)
             }
         }
+        .navigationViewStyle(.stack)
     }
 }
 
 struct MovieDetailView: View {
-    let movie: MovieSearchResult
+    let movie: Movie
     @State private var showAddReview = false
     var body: some View {
         ScrollView {
@@ -103,7 +204,7 @@ struct MovieDetailView: View {
                 if let releaseDate = movie.releaseDate, !releaseDate.isEmpty {
                     Text("Release Year: \(String(releaseDate.prefix(4)))")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(hex: "393B3D"))
                 }
                 if let overview = movie.overview, !overview.isEmpty {
                     Text(overview)

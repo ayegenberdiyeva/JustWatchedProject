@@ -20,22 +20,4 @@ struct PersonalRecommendationList: Codable {
         case userId = "user_id"
         case recommendations
     }
-}
-
-struct MovieSearchResult: Codable, Identifiable, Hashable {
-    let id: Int
-    let title: String
-    let posterPath: String?
-    let releaseDate: String?
-    let overview: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, title, overview
-        case posterPath = "poster_path"
-        case releaseDate = "release_date"
-    }
-}
-
-struct MovieSearchResponse: Codable {
-    let results: [MovieSearchResult]
 } 

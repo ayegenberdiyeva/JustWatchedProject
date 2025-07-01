@@ -7,7 +7,7 @@ struct WelcomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.themePrimaryDark.ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 VStack(spacing: 32) {
                     Spacer()
                     
@@ -19,11 +19,11 @@ struct WelcomeView: View {
                         Text("JustWatched")
                             .font(.largeTitle)
                             .bold()
-                            .foregroundColor(.themeNeutralLight)
+                            .foregroundColor(.white)
                         
                         Text("Your social movie diary")
                             .font(.title3)
-                            .foregroundColor(.themeNeutralLight.opacity(0.7))
+                            .foregroundColor(Color(hex: "393B3D"))
                     }
                     
                     Spacer()
@@ -45,7 +45,7 @@ struct WelcomeView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.themePrimaryGrey)
-                                .foregroundColor(.themeNeutralLight)
+                                .foregroundColor(.white)
                                 .cornerRadius(8)
                         }
                     }

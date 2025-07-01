@@ -6,21 +6,21 @@ struct ResetPasswordView: View {
     
     var body: some View {
         ZStack {
-            Color.themePrimaryDark.ignoresSafeArea()
+            Color.black.ignoresSafeArea()
             VStack(spacing: 24) {
                 Text("Reset Password")
                     .font(.largeTitle)
                     .bold()
-                    .foregroundColor(.themeNeutralLight)
+                    .foregroundColor(.white)
                 
                 Text("Enter your email address and we'll send you instructions to reset your password.")
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.themeNeutralLight.opacity(0.7))
+                    .foregroundColor(Color(hex: "393B3D"))
                 
                 TextField("", text: $viewModel.email)
                     .placeholder(when: viewModel.email.isEmpty) {
                         Text("Email")
-                            .foregroundColor(.themeNeutralLight.opacity(0.8))
+                            .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.emailAddress)
@@ -30,8 +30,8 @@ struct ResetPasswordView: View {
                     .accessibilityLabel("Email address")
                     .accessibilityHint("Enter your email address to receive password reset instructions")
                     .padding()
-                    .background(Color.themePrimaryGrey)
-                    .foregroundColor(.themeNeutralLight)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .foregroundColor(.white)
                     .cornerRadius(8)
                 
                 if let error = viewModel.error {
@@ -46,7 +46,7 @@ struct ResetPasswordView: View {
                 }) {
                     if viewModel.isLoading {
                         ProgressView()
-                            .tint(.themeNeutralLight)
+                            .tint(.white)
                     } else {
                         Text("Send Reset Instructions")
                             .bold()
@@ -62,7 +62,7 @@ struct ResetPasswordView: View {
                 Button("Back to Login") {
                     dismiss()
                 }
-                .foregroundColor(.themeNeutralLight)
+                .foregroundColor(.white)
                 .padding(.top, 8)
                 
                 Spacer()

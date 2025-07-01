@@ -7,6 +7,7 @@ struct UserProfile: Codable, Hashable {
     let avatarUrl: String?
     let createdAt: String?
     let personalRecommendations: [String]?
+    let color: String?
 
     enum CodingKeys: String, CodingKey {
         case displayName = "display_name"
@@ -15,5 +16,6 @@ struct UserProfile: Codable, Hashable {
         case avatarUrl = "avatar_url"
         case createdAt = "created_at"
         case personalRecommendations = "personal_recommendations"
+        case color
     }
 } 

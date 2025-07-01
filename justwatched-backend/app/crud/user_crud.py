@@ -19,9 +19,11 @@ class UserCRUD:
         user_id = str(uuid.uuid4())
         user_data = user.dict()
         user_data["user_id"] = user_id
+        # Set default color for new users
+        user_data["color"] = "red"
         # WARNING: Password should be hashed in production!
         await run_in_threadpool(lambda: self.users_col.document(user_id).set(user_data))
-        return UserProfile(user_id=user_id, email=user.email, display_name=user.display_name)
+        return UserProfile(user_id=user_id, email=user.email, display_name=user.display_name, color="red")
 
     async def login_user(self, login: UserLogin) -> Optional[UserProfile]:
         # WARNING: Password should be hashed and checked securely in production!
@@ -31,7 +33,15 @@ class UserCRUD:
         doc: DocumentSnapshot = await run_in_threadpool(find_user)
         if doc and doc.exists:
             data = doc.to_dict()
-            return UserProfile(user_id=data["user_id"], email=data["email"], display_name=data.get("display_name"), avatar_url=data.get("avatar_url"))
+            # Set default color if not present
+            color = data.get("color", "red")
+            return UserProfile(
+                user_id=data["user_id"], 
+                email=data["email"], 
+                display_name=data.get("display_name"), 
+                avatar_url=data.get("avatar_url"),
+                color=color
+            )
         return None
 
     async def create_user_profile(self, user_id: str, data: Dict[str, Any]) -> None:
@@ -53,6 +63,8 @@ class UserCRUD:
             profile_data.setdefault("avatar_url", None)
             profile_data.setdefault("created_at", profile_data.get("createdAt"))  # Handle legacy field name
             profile_data.setdefault("personal_recommendations", None)
+            # Set default color if not present (lazy default)
+            profile_data.setdefault("color", "red")
             return profile_data
         return None
 

@@ -2,7 +2,10 @@ import SwiftUI
 
 struct LobbyView: View {
     var body: some View {
-        Text("LobbyView")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Text("LobbyView")
+        }
     }
 }
 

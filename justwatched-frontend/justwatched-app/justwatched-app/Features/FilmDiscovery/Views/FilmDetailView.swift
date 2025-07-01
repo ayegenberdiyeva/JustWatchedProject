@@ -2,7 +2,10 @@ import SwiftUI
 
 struct FilmDetailView: View {
     var body: some View {
-        Text("FilmDetailView")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Text("FilmDetailView")
+        }
     }
 }
 

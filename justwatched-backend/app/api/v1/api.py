@@ -6,3 +6,6 @@ api_router = APIRouter()
 # api_router.include_router(films.router, prefix="/films", tags=["films"])
 # api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 # api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
+
+from .endpoints import rooms
+api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])

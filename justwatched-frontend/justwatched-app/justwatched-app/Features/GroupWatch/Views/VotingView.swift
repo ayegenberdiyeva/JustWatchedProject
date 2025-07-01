@@ -2,7 +2,10 @@ import SwiftUI
 
 struct VotingView: View {
     var body: some View {
-        Text("VotingView")
+        ZStack {
+            Color.black.ignoresSafeArea()
+            Text("VotingView")
+        }
     }
 }
 

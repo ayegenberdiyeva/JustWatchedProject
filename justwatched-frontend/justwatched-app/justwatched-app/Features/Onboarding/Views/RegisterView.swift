@@ -6,17 +6,17 @@ struct RegisterView: View {
 
     var body: some View {
         ZStack {
-            Color.themePrimaryDark.ignoresSafeArea()
+            Color.black.ignoresSafeArea()
             VStack(spacing: 24) {
                 Text("Register")
                     .font(.largeTitle)
                     .bold()
-                    .foregroundColor(.themeNeutralLight)
+                    .foregroundColor(.white)
                 
                 TextField("", text: $viewModel.email)
                     .placeholder(when: viewModel.email.isEmpty) {
                         Text("Email")
-                            .foregroundColor(.themeNeutralLight.opacity(0.8))
+                            .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.emailAddress)
@@ -26,14 +26,14 @@ struct RegisterView: View {
                     .accessibilityLabel("Email address")
                     .accessibilityHint("Enter your email address for registration")
                     .padding()
-                    .background(Color.themePrimaryGrey)
-                    .foregroundColor(.themeNeutralLight)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .foregroundColor(.white)
                     .cornerRadius(8)
                 
                 TextField("", text: $viewModel.displayName)
                     .placeholder(when: viewModel.displayName.isEmpty) {
                         Text("Display Name (optional)")
-                            .foregroundColor(.themeNeutralLight.opacity(0.8))
+                            .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.nickname)
@@ -41,36 +41,36 @@ struct RegisterView: View {
                     .accessibilityLabel("Display name")
                     .accessibilityHint("Enter your display name (optional)")
                     .padding()
-                    .background(Color.themePrimaryGrey)
-                    .foregroundColor(.themeNeutralLight)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .foregroundColor(.white)
                     .cornerRadius(8)
                 
                 SecureField("", text: $viewModel.password)
                     .placeholder(when: viewModel.password.isEmpty) {
                         Text("Password")
-                            .foregroundColor(.themeNeutralLight.opacity(0.8))
+                            .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.newPassword)
                     .accessibilityLabel("Password")
                     .accessibilityHint("Enter your password (minimum 6 characters)")
                     .padding()
-                    .background(Color.themePrimaryGrey)
-                    .foregroundColor(.themeNeutralLight)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .foregroundColor(.white)
                     .cornerRadius(8)
                 
                 SecureField("", text: $viewModel.confirmPassword)
                     .placeholder(when: viewModel.confirmPassword.isEmpty) {
                         Text("Confirm Password")
-                            .foregroundColor(.themeNeutralLight.opacity(0.8))
+                            .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.newPassword)
                     .accessibilityLabel("Confirm password")
                     .accessibilityHint("Confirm your password")
                     .padding()
-                    .background(Color.themePrimaryGrey)
-                    .foregroundColor(.themeNeutralLight)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .foregroundColor(.white)
                     .cornerRadius(8)
                 
                 if let error = viewModel.error {
@@ -88,7 +88,7 @@ struct RegisterView: View {
                 }) {
                     if viewModel.isLoading {
                         ProgressView()
-                            .tint(.themeNeutralLight)
+                            .tint(.white)
                     } else {
                         Text("Register")
                             .bold()
@@ -104,7 +104,7 @@ struct RegisterView: View {
                 Button("Already have an account? Login") {
                     dismiss()
                 }
-                .foregroundColor(.themeNeutralLight)
+                .foregroundColor(.white)
                 .padding(.top, 8)
                 
                 Spacer()

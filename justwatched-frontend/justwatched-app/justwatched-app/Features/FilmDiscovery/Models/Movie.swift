@@ -1,18 +1,37 @@
 import Foundation
 
 struct Movie: Codable, Identifiable, Hashable {
-    let id: String // maps to movie_id
+    let id: Int
     let title: String
-    let year: Int?
-    let genres: [String]?
-    let director: String?
-    let cast: [String]?
-    let description: String?
-    let posterUrl: String?
-    let rating: Double?
-
+    let posterPath: String?
+    let releaseDate: String?
+    let overview: String?
+    
     enum CodingKeys: String, CodingKey {
-        case id = "movie_id"
-        case title, year, genres, director, cast, description, posterUrl = "poster_url", rating
+        case id, title, overview
+        case posterPath = "poster_path"
+        case releaseDate = "release_date"
     }
+}
+
+struct TVShow: Codable, Identifiable, Hashable {
+    let id: Int
+    let name: String
+    let posterPath: String?
+    let firstAirDate: String?
+    let overview: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, overview
+        case posterPath = "poster_path"
+        case firstAirDate = "first_air_date"
+    }
+}
+
+struct MovieSearchResponse: Codable {
+    let results: [Movie]
+}
+
+struct TVShowSearchResponse: Codable {
+    let results: [TVShow]
 } 
