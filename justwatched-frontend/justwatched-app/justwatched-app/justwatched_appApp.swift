@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct justwatched_appApp: App {
+    @State private var showSplash = true
+    
     var body: some Scene {
         WindowGroup {
-            AuthGate()
+            if showSplash {
+                SplashScreenView(showSplash: $showSplash)
+            } else {
+                AuthGate()
+            }
         }
     }
 }

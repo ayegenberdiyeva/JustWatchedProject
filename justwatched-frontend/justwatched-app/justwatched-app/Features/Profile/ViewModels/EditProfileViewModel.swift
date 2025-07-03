@@ -5,7 +5,6 @@ class EditProfileViewModel: ObservableObject {
     @Published var displayName: String = ""
     @Published var email: String = ""
     @Published var bio: String = ""
-    @Published var avatarUrl: String = ""
     @Published var color: String = "red"
     @Published var isLoading = false
     @Published var error: Error?
@@ -19,11 +18,9 @@ class EditProfileViewModel: ObservableObject {
         if let profile = AuthManager.shared.userProfile {
             self.displayName = profile.displayName ?? ""
             self.email = profile.email
-            self.bio = profile.bio ?? ""
-            self.avatarUrl = profile.avatarUrl ?? ""
             self.color = profile.color ?? "red"
         }
-    }
+    } 
     
     func saveProfile() async {
         isLoading = true
@@ -35,7 +32,6 @@ class EditProfileViewModel: ObservableObject {
                 displayName: displayName.isEmpty ? nil : displayName,
                 email: email.isEmpty ? nil : email,
                 bio: bio.isEmpty ? nil : bio,
-                avatarUrl: avatarUrl.isEmpty ? nil : avatarUrl,
                 color: color
             )
             try await AuthManager.shared.refreshUserProfile()

@@ -13,19 +13,17 @@ class UserProfileRequest(BaseModel):
     display_name: Optional[str] = None
     email: Optional[EmailStr] = None
     bio: Optional[str] = None
-    avatar_url: Optional[str] = None
     color: Optional[UserColor] = None
 
 class UserProfileResponse(BaseModel):
     display_name: Optional[str] = None
     email: Optional[EmailStr] = None
     bio: Optional[str] = None
-    avatar_url: Optional[str] = None
     color: Optional[str] = None
     created_at: Optional[str] = None
     personal_recommendations: Optional[list] = None
 
-@router.post("/users", response_model=None)
+@router.post("/", response_model=None)
 async def create_user_profile(
     profile: UserProfileRequest,
     user=Depends(get_current_user)
@@ -37,7 +35,7 @@ async def create_user_profile(
         raise HTTPException(status_code=500, detail=str(e))
     return {"status": "created"}
 
-@router.get("/users/me", response_model=UserProfileResponse)
+@router.get("/me", response_model=UserProfileResponse)
 async def get_my_profile(user=Depends(get_current_user)):
     user_id = user["sub"] if isinstance(user, dict) else user.sub
     profile = await user_crud.get_user_profile(user_id)
@@ -45,7 +43,7 @@ async def get_my_profile(user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Profile not found")
     return profile
 
-@router.patch("/users/me", response_model=UserProfileResponse)
+@router.patch("/me", response_model=UserProfileResponse)
 async def update_my_profile(
     profile: UserProfileRequest,
     user=Depends(get_current_user)
@@ -63,7 +61,7 @@ async def update_my_profile(
 class ColorUpdateRequest(BaseModel):
     color: UserColor
 
-@router.patch("/users/me/color", response_model=UserProfileResponse)
+@router.patch("/me/color", response_model=UserProfileResponse)
 async def update_my_color(
     color_update: ColorUpdateRequest,
     user=Depends(get_current_user)
@@ -79,7 +77,7 @@ async def update_my_color(
         raise HTTPException(status_code=500, detail=str(e))
     return updated_profile
 
-@router.get("/users/colors")
+@router.get("/colors")
 async def get_available_colors():
     """Get all available color options."""
     return {

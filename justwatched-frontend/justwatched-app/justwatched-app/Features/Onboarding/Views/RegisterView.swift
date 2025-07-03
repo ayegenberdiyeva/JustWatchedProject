@@ -94,7 +94,7 @@ struct RegisterView: View {
                             .bold()
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.themeAccentYellow)
+                            .background(.white)
                             .foregroundColor(.themePrimaryDark)
                             .cornerRadius(8)
                     }

@@ -6,6 +6,11 @@ struct LobbyView: View {
             Color.black.ignoresSafeArea()
             Text("LobbyView")
         }
+        .task {
+            if AuthManager.shared.isAuthenticated {
+                try? await AuthManager.shared.refreshUserProfile()
+            }
+        }
     }
 }
 

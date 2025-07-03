@@ -8,49 +8,37 @@ struct WelcomeView: View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                VStack(spacing: 32) {
-                    Spacer()
-                    
-                    VStack(spacing: 16) {
-                        Image(systemName: "film")
-                            .font(.system(size: 80))
-                            .foregroundColor(.themeAccentYellow)
-                        
-                        Text("JustWatched")
-                            .font(.largeTitle)
+                // Centered logo text (identical to SplashScreenView)
+                Text("Just\nWatched.")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(.bottom, 40)
+                // Bottom-aligned button set
+                VStack(spacing: 16) {
+                    Button(action: { showLogin = true }) {
+                        Text("Log in")
                             .bold()
-                            .foregroundColor(.white)
-                        
-                        Text("Your social movie diary")
-                            .font(.title3)
-                            .foregroundColor(Color(hex: "393B3D"))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white)
+                            .foregroundColor(.black)
+                            .cornerRadius(8)
                     }
-                    
-                    Spacer()
-                    
-                    VStack(spacing: 16) {
-                        Button(action: { showLogin = true }) {
-                            Text("Login")
-                                .bold()
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.themeAccentYellow)
-                                .foregroundColor(.themePrimaryDark)
-                                .cornerRadius(8)
-                        }
-                        
-                        Button(action: { showRegister = true }) {
-                            Text("Register")
-                                .bold()
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.themePrimaryGrey)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                        }
+                    Button(action: { showRegister = true }) {
+                        Text("Sign in")
+                            .bold()
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.themePrimaryGrey)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom, 32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
             .sheet(isPresented: $showLogin) {
                 NavigationStack {

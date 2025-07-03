@@ -179,6 +179,11 @@ struct SearchResultsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .task {
+            if AuthManager.shared.isAuthenticated {
+                try? await AuthManager.shared.refreshUserProfile()
+            }
+        }
     }
 }
 

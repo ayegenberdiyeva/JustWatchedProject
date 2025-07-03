@@ -101,8 +101,7 @@ class AuthViewModel: ObservableObject {
                 try await authManager.updateCurrentUserProfile(
                     displayName: displayName,
                     email: email,
-                    bio: "No bio yet",
-                    avatarUrl: "person.fill"
+                    bio: "No bio yet"
                 )
             }
             isRegistered = true

@@ -4,45 +4,43 @@ struct Review: Identifiable, Codable, Hashable {
     let id: String?
     let mediaId: String
     let mediaType: String // "movie" or "tv"
-    let userId: String?
+    let userId: String? // user_id
     let rating: Int
     let content: String?
     let createdAt: Date?
+    let updatedAt: Date?
     let title: String
     let posterPath: String?
     let watchedDate: Date?
+    let status: String // "watched" | "watchlist"
+    let collections: [String]? // collection IDs
     
     enum CodingKeys: String, CodingKey {
         case id = "review_id"
         case mediaId = "media_id"
         case mediaType = "media_type"
-        case userId = "authorId"
+        case userId = "user_id"
         case rating
         case content = "review_text"
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
         case title = "media_title"
         case posterPath = "poster_path"
         case watchedDate = "watched_date"
+        case status
+        case collections
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        // Optional fields
         id = try container.decodeIfPresent(String.self, forKey: .id)
         mediaId = try container.decode(String.self, forKey: .mediaId)
         mediaType = try container.decode(String.self, forKey: .mediaType)
         userId = try container.decodeIfPresent(String.self, forKey: .userId)
-        
-        // Handle rating as Double from backend, convert to Int
         let ratingDouble = try container.decode(Double.self, forKey: .rating)
         rating = Int(ratingDouble)
-        
-        // Optional fields with fallbacks
         content = try container.decodeIfPresent(String.self, forKey: .content)
         posterPath = try container.decodeIfPresent(String.self, forKey: .posterPath)
-        
-        // Date fields with flexible parsing
         if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -50,7 +48,13 @@ struct Review: Identifiable, Codable, Hashable {
         } else {
             createdAt = nil
         }
-        
+        if let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            updatedAt = formatter.date(from: updatedAtString)
+        } else {
+            updatedAt = nil
+        }
         if let watchedDateString = try container.decodeIfPresent(String.self, forKey: .watchedDate) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -58,12 +62,11 @@ struct Review: Identifiable, Codable, Hashable {
         } else {
             watchedDate = nil
         }
-        
-        // Use title from backend, fallback to mediaId if missing
         title = (try container.decodeIfPresent(String.self, forKey: .title)) ?? "Media #\(mediaId)"
+        status = try container.decode(String.self, forKey: .status)
+        collections = try container.decodeIfPresent([String].self, forKey: .collections)
     }
     
-    // Custom Hashable implementation to ensure proper UI updates
     func hash(into hasher: inout Hasher) {
         hasher.combine(mediaId)
         hasher.combine(mediaType)
@@ -83,6 +86,8 @@ struct ReviewRequest: Codable {
     let watchedDate: Date?
     let mediaTitle: String?
     let posterPath: String?
+    let status: String // "watched" | "watchlist"
+    let collections: [String]? // collection IDs
     
     enum CodingKeys: String, CodingKey {
         case mediaId = "media_id"
@@ -92,5 +97,7 @@ struct ReviewRequest: Codable {
         case watchedDate = "watched_date"
         case mediaTitle = "media_title"
         case posterPath = "poster_path"
+        case status
+        case collections
     }
 } 

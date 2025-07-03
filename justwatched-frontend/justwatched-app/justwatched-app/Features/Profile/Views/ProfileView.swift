@@ -59,6 +59,9 @@ struct ProfileView: View {
             }
             .task {
                 await viewModel.fetchProfile()
+                if AuthManager.shared.isAuthenticated {
+                    try? await AuthManager.shared.refreshUserProfile()
+                }
             }
         }
     }
@@ -111,26 +114,36 @@ struct ProfileView: View {
     }
     
     private var actionButtons: some View {
-            HStack(spacing: 12) {
-                Button(action: { showEditProfile = true }) {
-                    Label("Edit Profile", systemImage: "pencil")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.white)
-                        .foregroundColor(.black)
-                        .cornerRadius(16)
-                }
-                Button(action: { showAddReview = true }) {
-                    Label("Add Review", systemImage: "plus")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.white.opacity(0.15))
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                }
+        let preferredColor: Color = {
+            switch AuthManager.shared.userProfile?.color {
+            case "red": return .red
+            case "yellow": return .yellow
+            case "green": return .green
+            case "blue": return .blue
+            case "pink": return .pink
+            default: return .white
             }
+        }()
+        return HStack(spacing: 12) {
+            Button(action: { showEditProfile = true }) {
+                Label("Edit Profile", systemImage: "pencil")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.white)
+                    .foregroundColor(.black)
+                    .cornerRadius(16)
+            }
+            Button(action: { showAddReview = true }) {
+                Label("Add Review", systemImage: "plus")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.white.opacity(0.15))
+                    .foregroundColor(preferredColor)
+                    .cornerRadius(16)
+            }
+        }
         .padding(.horizontal)
     }
     

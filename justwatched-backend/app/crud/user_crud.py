@@ -38,8 +38,7 @@ class UserCRUD:
             return UserProfile(
                 user_id=data["user_id"], 
                 email=data["email"], 
-                display_name=data.get("display_name"), 
-                avatar_url=data.get("avatar_url"),
+                display_name=data.get("display_name"),
                 color=color
             )
         return None
@@ -60,7 +59,6 @@ class UserCRUD:
             profile_data.setdefault("display_name", None)
             profile_data.setdefault("email", None)
             profile_data.setdefault("bio", None)
-            profile_data.setdefault("avatar_url", None)
             profile_data.setdefault("created_at", profile_data.get("createdAt"))  # Handle legacy field name
             profile_data.setdefault("personal_recommendations", None)
             # Set default color if not present (lazy default)

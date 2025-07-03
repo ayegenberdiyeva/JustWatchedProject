@@ -5,7 +5,7 @@ class AuthManager: ObservableObject {
     static let shared = AuthManager()
     private init() {
         // Load saved JWT if exists
-        if let savedJWT = UserDefaults.standard.string(forKey: "jwt") {
+        if let savedJWT = UserDefaults.standard.string(forKey: jwtKey) {
             self.jwt = savedJWT
         }
     }
@@ -82,8 +82,7 @@ class AuthManager: ObservableObject {
                     jwt: auth.access_token,
                     displayName: "",
                     email: email,
-                    bio: "No bio yet",
-                    avatarUrl: "person.fill"
+                    bio: "No bio yet"
                 )
                 await MainActor.run { self.userProfile = profile }
             } else {
@@ -97,13 +96,12 @@ class AuthManager: ObservableObject {
         let network = NetworkService.shared
         let auth = try await network.register(email: email, password: password)
         await MainActor.run { self.jwt = auth.access_token }
-        // Use email as required, displayName as empty, bio as default, avatarUrl as default
+        // Use email as required, displayName as empty, bio as default
         let profile = try await network.createUserProfile(
             jwt: auth.access_token,
             displayName: "", // or collect from registration if available
             email: email,
-            bio: "No bio yet",
-            avatarUrl: "person.fill"
+            bio: "No bio yet"
         )
         await MainActor.run { self.userProfile = profile }
     }
@@ -120,15 +118,14 @@ class AuthManager: ObservableObject {
         await MainActor.run { self.userProfile = profile }
     }
 
-    func updateCurrentUserProfile(displayName: String, email: String, bio: String?, avatarUrl: String?) async throws {
+    func updateCurrentUserProfile(displayName: String, email: String, bio: String?) async throws {
         guard let jwt = jwt else { throw AuthError.notAuthenticated }
         let network = NetworkService.shared
         _ = try await network.updateCurrentUserProfile(
             jwt: jwt,
             displayName: displayName,
             email: email,
-            bio: bio ?? "No bio yet",
-            avatarUrl: avatarUrl ?? "person.fill"
+            bio: bio ?? "No bio yet"
         )
         try await refreshUserProfile()
     }
@@ -136,7 +133,7 @@ class AuthManager: ObservableObject {
     func signIn(withJWT jwt: String) {
         Task { @MainActor in
             self.jwt = jwt
-            UserDefaults.standard.set(jwt, forKey: "jwt")
+            UserDefaults.standard.set(jwt, forKey: jwtKey)
         }
     }
     
@@ -144,7 +141,7 @@ class AuthManager: ObservableObject {
         Task { @MainActor in
             self.jwt = nil
             self.userProfile = nil
-            UserDefaults.standard.removeObject(forKey: "jwt")
+            UserDefaults.standard.removeObject(forKey: jwtKey)
         }
     }
 

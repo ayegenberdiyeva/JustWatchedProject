@@ -16,7 +16,6 @@ struct UserProfileRequest: Encodable {
     let display_name: String?
     let email: String?
     let bio: String?
-    let avatar_url: String?
 }
 
 enum NetworkError: LocalizedError {
@@ -38,6 +37,7 @@ enum NetworkError: LocalizedError {
 class NetworkService {
     static let shared = NetworkService()
     private let baseURL = "http://localhost:8000/api/v1"
+    // private let baseURL = "http://10.68.96.135:8000/api/v1"
     private let authManager = AuthManager.shared
     
     private init() {}
@@ -76,12 +76,11 @@ class NetworkService {
         return try JSONDecoder().decode(UserProfile.self, from: data)
     }
     
-    func updateProfile(displayName: String?, email: String?, bio: String?, avatarUrl: String?, color: String?) async throws {
+    func updateProfile(displayName: String?, email: String?, bio: String?, color: String?) async throws {
         let parameters: [String: Any?] = [
             "display_name": displayName,
             "email": email,
             "bio": bio,
-            "avatar_url": avatarUrl,
             "color": color
         ]
         let jsonData = try JSONSerialization.data(withJSONObject: parameters.compactMapValues { $0 })
@@ -92,7 +91,7 @@ class NetworkService {
     }
     
     func fetchUserReviews() async throws -> [Review] {
-        let (data, response) = try await authorizedRequest("/users/me/reviews")
+        let (data, response) = try await authorizedRequest("/reviews/users/me/reviews")
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -125,9 +124,15 @@ class NetworkService {
         encoder.dateEncodingStrategy = .iso8601
         let jsonData = try encoder.encode(review)
         
-        let (_, response) = try await authorizedRequest("/reviews", method: "POST", body: jsonData)
+        let (_, response) = try await authorizedRequest("/reviews/", method: "POST", body: jsonData)
         
         guard let httpResponse = response as? HTTPURLResponse, (httpResponse.statusCode == 200 || httpResponse.statusCode == 201) else {
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 403 {
+                await MainActor.run {
+                    AuthManager.shared.signOut()
+                    AppState.shared.isAuthenticated = false
+                }
+            }
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
     }
@@ -181,9 +186,9 @@ class NetworkService {
     }
 
     // MARK: - User Profile
-    func createUserProfile(jwt: String, displayName: String, email: String, bio: String?, avatarUrl: String?) async throws -> UserProfile {
+    func createUserProfile(jwt: String, displayName: String, email: String, bio: String?) async throws -> UserProfile {
         let url = URL(string: baseURL + "/users")!
-        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, avatar_url: avatarUrl)
+        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio)
         return try await post(url: url, body: body, jwt: jwt)
     }
 
@@ -206,9 +211,9 @@ class NetworkService {
         return profile
     }
 
-    func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?, avatarUrl: String?) async throws -> UserProfile {
+    func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?) async throws -> UserProfile {
         let url = URL(string: baseURL + "/users/me")!
-        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, avatar_url: avatarUrl)
+        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio)
         return try await patch(url: url, body: body, jwt: jwt)
     }
 
@@ -220,7 +225,7 @@ class NetworkService {
 
     // MARK: - Reviews
     func getMyReviews(jwt: String) async throws -> [Review] {
-        let url = URL(string: baseURL + "/users/me/reviews")!
+        let url = URL(string: baseURL + "/reviews/users/me/reviews")!
         return try await get(url: url, jwt: jwt)
     }
 
@@ -281,6 +286,78 @@ class NetworkService {
 
     func clearSearchHistory() async throws {
         let (_, response) = try await authorizedRequest("/search_history", method: "DELETE")
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+
+    // MARK: - Collections
+    func fetchUserCollections(includePrivate: Bool = true) async throws -> [Collection] {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        var urlComponents = URLComponents(string: baseURL + "/collections/")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "include_private", value: includePrivate ? "true" : "false")
+        ]
+        var request = URLRequest(url: urlComponents.url!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        let decoded = try JSONDecoder().decode(CollectionResponse.self, from: data)
+        return decoded.collections
+    }
+
+    func createCollection(name: String, description: String?, visibility: String) async throws -> Collection {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let body: [String: Any?] = [
+            "name": name,
+            "description": description,
+            "visibility": visibility
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body.compactMapValues { $0 })
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 || httpResponse.statusCode == 201 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(Collection.self, from: data)
+    }
+
+    // MARK: - User Color
+    struct UserColor: Codable, Hashable {
+        let value: String
+        let name: String
+    }
+    struct UserColorsResponse: Codable {
+        let colors: [UserColor]
+        let `default`: String
+    }
+    func fetchAvailableUserColors() async throws -> UserColorsResponse {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/users/colors")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(UserColorsResponse.self, from: data)
+    }
+    func updateUserColor(color: String) async throws {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/users/me/color")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let body: [String: String] = ["color": color]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (_, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }

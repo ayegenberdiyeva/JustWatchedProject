@@ -12,6 +12,13 @@ class AddReviewViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var error: String? = nil
     @Published var success: Bool = false
+    @Published var status: String = "watched" // "watched" or "watchlist"
+    @Published var selectedCollections: Set<String> = []
+    @Published var collections: [Collection] = []
+    @Published var isPresentingNewCollection: Bool = false
+    @Published var newCollectionName: String = ""
+    @Published var newCollectionDescription: String = ""
+    @Published var newCollectionVisibility: String = "private"
     
     private let networkService = NetworkService.shared
     private var searchTask: Task<Void, Never>?
@@ -37,6 +44,33 @@ class AddReviewViewModel: ObservableObject {
         }
     }
     
+    func fetchCollections() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            self.collections = try await networkService.fetchUserCollections()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+    
+    func createCollection() async {
+        guard !newCollectionName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let collection = try await networkService.createCollection(name: newCollectionName, description: newCollectionDescription.isEmpty ? nil : newCollectionDescription, visibility: newCollectionVisibility)
+            collections.insert(collection, at: 0)
+            selectedCollections.insert(collection.id)
+            newCollectionName = ""
+            newCollectionDescription = ""
+            newCollectionVisibility = "private"
+            isPresentingNewCollection = false
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+    
     func submitReview() async {
         guard let mediaId = selectedMovie?.id ?? selectedTVShow?.id else {
             error = "Please select a movie or TV show."
@@ -46,7 +80,6 @@ class AddReviewViewModel: ObservableObject {
             error = "Please provide a rating."
             return
         }
-        
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -58,7 +91,9 @@ class AddReviewViewModel: ObservableObject {
                 content: reviewText.isEmpty ? nil : reviewText,
                 watchedDate: Date(),
                 mediaTitle: selectedMovie?.title ?? selectedTVShow?.name,
-                posterPath: selectedMovie?.posterPath ?? selectedTVShow?.posterPath
+                posterPath: selectedMovie?.posterPath ?? selectedTVShow?.posterPath,
+                status: status,
+                collections: selectedCollections.isEmpty ? nil : Array(selectedCollections)
             )
             try await networkService.postReview(review: reviewRequest)
             success = true

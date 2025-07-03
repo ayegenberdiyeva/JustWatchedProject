@@ -6,6 +6,11 @@ struct HomeView: View {
             Color.black.ignoresSafeArea()
             Text("HomeView")
         }
+        .task {
+            if AuthManager.shared.isAuthenticated {
+                try? await AuthManager.shared.refreshUserProfile()
+            }
+        }
     }
 }
 
