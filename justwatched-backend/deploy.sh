@@ -36,9 +36,9 @@ if [ ! -f ".env" ]; then
 fi
 
 # Check if Firebase credentials exist
-if [ ! -f "firebase-credentials.json" ]; then
-    echo "❌ firebase-credentials.json not found!"
-    echo "📝 Please add your Firebase service account key as firebase-credentials.json"
+if [ ! -f "firebase-key.json" ]; then
+    echo "❌ firebase-key.json not found!"
+    echo "📝 Please add your Firebase service account key as firebase-key.json"
     echo "    This file will be mounted as /app/firebase-key.json in the container"
     exit 1
 fi
