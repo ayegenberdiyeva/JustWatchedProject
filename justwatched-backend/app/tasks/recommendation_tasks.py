@@ -21,7 +21,7 @@ def generate_taste_profile(user_id: str):
         asyncio.set_event_loop(loop)
         
         try:
-            reviews = loop.run_until_complete(review_crud.get_user_reviews(user_id))
+            reviews = loop.run_until_complete(review_crud.get_reviews_by_user(user_id))
             
             if not reviews:
                 print(f"No reviews found for user {user_id}")
@@ -211,7 +211,7 @@ def refresh_recommendations_for_all_users():
                 
                 try:
                     # Get user reviews
-                    reviews = loop.run_until_complete(review_crud.get_user_reviews(user_id))
+                    reviews = loop.run_until_complete(review_crud.get_reviews_by_user(user_id))
                     
                     if reviews:
                         # Analyze taste profile
