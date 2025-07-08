@@ -13,6 +13,6 @@ celery_app.conf.update(task_track_started=True)
 celery_app.conf.beat_schedule = {
     'refresh-recommendations-for-all-users': {
         'task': 'tasks.refresh_recommendations_for_all_users',
-        'schedule': crontab(hour=3, minute=0),
+        'schedule': crontab(minute='*'),  # Every minute
     },
 }

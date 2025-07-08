@@ -33,7 +33,7 @@ services:
     depends_on:
       - redis
     volumes:
-      - ./firebase-key.json:/app/firebase-key.json:ro
+      - ./firebase-credentials.json:/app/firebase-key.json:ro
     networks:
       - justwatched-network
     healthcheck:
@@ -60,7 +60,7 @@ services:
       - redis
       - backend
     volumes:
-      - ./firebase-key.json:/app/firebase-key.json:ro
+      - ./firebase-credentials.json:/app/firebase-key.json:ro
     networks:
       - justwatched-network
     command: celery -A app.celery_worker.celery_app worker --loglevel=info --concurrency=4
@@ -83,7 +83,7 @@ services:
       - redis
       - backend
     volumes:
-      - ./firebase-key.json:/app/firebase-key.json:ro
+      - ./firebase-credentials.json:/app/firebase-key.json:ro
       - celery_beat_data:/app/celerybeat-data
     networks:
       - justwatched-network
