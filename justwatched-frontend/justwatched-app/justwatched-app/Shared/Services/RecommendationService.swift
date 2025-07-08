@@ -8,7 +8,7 @@ actor RecommendationService {
     private let baseURL = "http://localhost:8000"
     private let session = URLSession.shared
 
-    func fetchPersonalRecommendations(tasteProfile: [String: Any], watchedMovieIDs: [Int]) async throws -> [Recommendation] {
+    func fetchPersonalRecommendations(tasteProfile: [String: Any], watchedMovieIDs: [Int]) async throws -> [RecommendationResult] {
         guard let url = URL(string: baseURL + "/recommend/personal") else {
             throw URLError(.badURL)
         }
@@ -24,7 +24,7 @@ actor RecommendationService {
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
-        let decoded = try JSONDecoder().decode(RecommendationResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
         return decoded.recommendations
     }
 } 

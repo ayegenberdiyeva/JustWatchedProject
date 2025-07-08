@@ -20,4 +20,10 @@ struct PersonalRecommendationList: Codable {
         case userId = "user_id"
         case recommendations
     }
+}
+
+struct UserRecommendationsResponse: Codable {
+    let recommendations: [RecommendationResult]
+    let taste_profile: String?
+    let last_updated: String?
 } 

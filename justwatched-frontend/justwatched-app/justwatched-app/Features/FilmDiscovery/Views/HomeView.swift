@@ -2,12 +2,16 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
-    @State private var jwt: String = AuthManager.shared.jwt ?? ""
+    @ObservedObject private var authManager = AuthManager.shared
 
     var body: some View {
         NavigationView {
             VStack(alignment: .leading, spacing: 16) {
-                if viewModel.isLoading {
+                if !authManager.isAuthenticated {
+                    Text("Please log in to see recommendations")
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                } else if viewModel.isLoading {
                     ProgressView("Loading recommendations...")
                         .frame(maxWidth: .infinity, alignment: .center)
                 } else if let error = viewModel.error {
@@ -29,8 +33,8 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(rec.title)
                                 .font(.headline)
-                            if let justification = rec.justification {
-                                Text(justification)
+                            if let reason = rec.reason {
+                                Text(reason)
                                     .font(.subheadline)
                                     .foregroundColor(.gray)
                             }
@@ -43,7 +47,14 @@ struct HomeView: View {
             .padding()
             .navigationTitle("Home")
             .onAppear {
-                Task { await viewModel.fetchRecommendations(jwt: jwt) }
+                if authManager.isAuthenticated, let jwt = authManager.jwt {
+                    Task { await viewModel.fetchRecommendations(jwt: jwt) }
+                }
+            }
+            .onChange(of: authManager.isAuthenticated) { isAuthenticated in
+                if isAuthenticated, let jwt = authManager.jwt {
+                    Task { await viewModel.fetchRecommendations(jwt: jwt) }
+                }
             }
         }
     }
