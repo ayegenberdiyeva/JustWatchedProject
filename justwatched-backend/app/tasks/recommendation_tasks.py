@@ -82,7 +82,7 @@ def generate_personal_recommendations(user_id: str, taste_profile: dict = None):
             from app.core.redis_client import redis_client
             import json
             redis_client.setex(
-                f"user_recommendations:{user_id}",
+                f"user:{user_id}:recommendations",
                 86400,  # 24 hours
                 json.dumps(recommendations)
             )
