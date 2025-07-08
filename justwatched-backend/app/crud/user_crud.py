@@ -15,7 +15,23 @@ class UserCRUD:
         self.users_col = self.db.collection("users")
         self.taste_col = self.db.collection("taste_profiles")
 
+    async def is_display_name_taken(self, display_name: str, exclude_user_id: Optional[str] = None) -> bool:
+        """Check if a display name is already taken by another user."""
+        def check_name():
+            query = self.users_col.where("display_name", "==", display_name).limit(1).stream()
+            doc = next(query, None)
+            if doc and exclude_user_id and doc.id == exclude_user_id:
+                return False  # Same user, so name is not "taken"
+            return doc is not None
+        return await run_in_threadpool(check_name)
+
     async def register_user(self, user: UserRegister) -> UserProfile:
+        # Check if display name is already taken
+        if user.display_name:
+            is_taken = await self.is_display_name_taken(user.display_name)
+            if is_taken:
+                raise ValueError(f"Display name '{user.display_name}' is already taken")
+        
         user_id = str(uuid.uuid4())
         user_data = user.dict()
         user_data["user_id"] = user_id
@@ -44,11 +60,23 @@ class UserCRUD:
         return None
 
     async def create_user_profile(self, user_id: str, data: Dict[str, Any]) -> None:
+        # Check if display name is already taken by another user
+        if "display_name" in data and data["display_name"]:
+            is_taken = await self.is_display_name_taken(data["display_name"], exclude_user_id=user_id)
+            if is_taken:
+                raise ValueError(f"Display name '{data['display_name']}' is already taken")
+        
         data = dict(data)
-        data["createdAt"] = datetime.utcnow().isoformat()
+        data["created_at"] = datetime.utcnow().isoformat()
         await run_in_threadpool(lambda: self.users_col.document(user_id).set(data))
 
     async def update_user_profile(self, user_id: str, data: Dict[str, Any]) -> None:
+        # Check if display name is already taken by another user
+        if "display_name" in data and data["display_name"]:
+            is_taken = await self.is_display_name_taken(data["display_name"], exclude_user_id=user_id)
+            if is_taken:
+                raise ValueError(f"Display name '{data['display_name']}' is already taken")
+        
         await run_in_threadpool(lambda: self.users_col.document(user_id).set(data, merge=True))
 
     async def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -56,13 +84,59 @@ class UserCRUD:
         if doc.exists:
             profile_data = doc.to_dict()
             # Ensure we have all expected fields with defaults
-            profile_data.setdefault("display_name", None)
-            profile_data.setdefault("email", None)
+            profile_data["user_id"] = user_id  # Always include user_id
+            
+            # Handle required fields - provide fallbacks for existing data
+            if not profile_data.get("display_name"):
+                profile_data["display_name"] = f"user_{user_id[:8]}"  # Fallback display name
+            if not profile_data.get("email"):
+                profile_data["email"] = f"user_{user_id[:8]}@placeholder.com"  # Fallback email
+            
             profile_data.setdefault("bio", None)
-            profile_data.setdefault("created_at", profile_data.get("createdAt"))  # Handle legacy field name
+            # Handle both legacy "createdAt" and new "created_at" field names
+            if "createdAt" in profile_data and "created_at" not in profile_data:
+                profile_data["created_at"] = profile_data["createdAt"]
+            profile_data.setdefault("created_at", None)
             profile_data.setdefault("personal_recommendations", None)
-            # Set default color if not present (lazy default)
-            profile_data.setdefault("color", "red")
+            
+            # Ensure color is always a valid string
+            if not profile_data.get("color"):
+                profile_data["color"] = "red"
+            elif profile_data["color"] is None:
+                profile_data["color"] = "red"
+            
+            return profile_data
+        return None
+
+    async def get_user_by_display_name(self, display_name: str) -> Optional[Dict[str, Any]]:
+        """Get user profile by display name (for finding users)."""
+        def find_user():
+            query = self.users_col.where("display_name", "==", display_name).limit(1).stream()
+            return next(query, None)
+        
+        doc = await run_in_threadpool(find_user)
+        if doc and doc.exists:
+            profile_data = doc.to_dict()
+            profile_data["user_id"] = doc.id
+            
+            # Handle required fields - provide fallbacks for existing data
+            if not profile_data.get("display_name"):
+                profile_data["display_name"] = f"user_{doc.id[:8]}"  # Fallback display name
+            if not profile_data.get("email"):
+                profile_data["email"] = f"user_{doc.id[:8]}@placeholder.com"  # Fallback email
+            
+            profile_data.setdefault("bio", None)
+            if "createdAt" in profile_data and "created_at" not in profile_data:
+                profile_data["created_at"] = profile_data["createdAt"]
+            profile_data.setdefault("created_at", None)
+            profile_data.setdefault("personal_recommendations", None)
+            
+            # Ensure color is always a valid string
+            if not profile_data.get("color"):
+                profile_data["color"] = "red"
+            elif profile_data["color"] is None:
+                profile_data["color"] = "red"
+            
             return profile_data
         return None
 
@@ -74,4 +148,17 @@ class UserCRUD:
         doc = await run_in_threadpool(lambda: self.taste_col.document(user_id).get())
         if doc.exists:
             return TasteProfile(**doc.to_dict())
-        return None 
+        return None
+
+    async def get_all_users(self) -> list:
+        """Get all users from the database."""
+        def fetch_users():
+            docs = self.users_col.stream()
+            users = []
+            for doc in docs:
+                user_data = doc.to_dict()
+                user_data["user_id"] = doc.id
+                users.append(user_data)
+            return users
+        
+        return await run_in_threadpool(fetch_users) 

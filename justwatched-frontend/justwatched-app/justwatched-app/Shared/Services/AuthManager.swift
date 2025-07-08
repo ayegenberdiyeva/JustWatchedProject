@@ -78,13 +78,20 @@ class AuthManager: ObservableObject {
                case .requestFailed(let statusCode) = networkError,
                statusCode == 404 {
                 // Profile doesn't exist, create one
-                let profile = try await network.createUserProfile(
-                    jwt: auth.access_token,
-                    displayName: "",
-                    email: email,
-                    bio: "No bio yet"
-                )
-                await MainActor.run { self.userProfile = profile }
+                // Extract user_id from JWT
+                if let payload = decodeJWTPayload(auth.access_token),
+                   let userId = payload["sub"] as? String {
+                    let profile = try await network.createUserProfile(
+                        jwt: auth.access_token,
+                        userId: userId,
+                        displayName: "",
+                        email: email,
+                        bio: "No bio yet"
+                    )
+                    await MainActor.run { self.userProfile = profile }
+                } else {
+                    throw AuthError.profileNotFound
+                }
             } else {
                 // Re-throw other errors
                 throw error
@@ -92,18 +99,27 @@ class AuthManager: ObservableObject {
         }
     }
 
-    func register(email: String, password: String) async throws {
+    func register(email: String, password: String, displayName: String = "") async throws {
         let network = NetworkService.shared
         let auth = try await network.register(email: email, password: password)
         await MainActor.run { self.jwt = auth.access_token }
-        // Use email as required, displayName as empty, bio as default
-        let profile = try await network.createUserProfile(
+        
+        print("🔍 Registration successful, creating user profile...")
+        
+        // Use PATCH /api/v1/users/me since POST /api/v1/users fails due to backend architecture
+        let profile = try await network.updateUserProfile(
             jwt: auth.access_token,
-            displayName: "", // or collect from registration if available
+            displayName: displayName.isEmpty ? email : displayName,
             email: email,
-            bio: "No bio yet"
+            bio: "No bio yet",
+            color: "red"
         )
         await MainActor.run { self.userProfile = profile }
+        print("✅ User profile created successfully")
+        
+        // Fetch the profile to ensure it's properly loaded
+        try await refreshUserProfile()
+        print("✅ Profile fetched and loaded")
     }
 
     // func logout() {

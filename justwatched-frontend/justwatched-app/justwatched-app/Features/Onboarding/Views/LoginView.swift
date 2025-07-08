@@ -46,6 +46,10 @@ struct LoginView: View {
                         .background(Color(hex: "393B3D").opacity(0.3))
                         .foregroundColor(.white)
                         .cornerRadius(8)
+                    if let error = viewModel.error {
+                        Text(error)
+                            .foregroundColor(.red)
+                    }
                     
                     Button("Forgot Password?") {
                         showResetPassword = true
@@ -86,16 +90,6 @@ struct LoginView: View {
             }
             .sheet(isPresented: $showResetPassword) {
                 ResetPasswordView()
-            }
-            .alert("Login Error", isPresented: $showErrorAlert) {
-                Button("OK") {
-                    viewModel.error = nil
-                }
-            } message: {
-                Text(viewModel.error ?? "An unknown error occurred")
-            }
-            .onChange(of: viewModel.error) {
-                showErrorAlert = viewModel.error != nil
             }
         }
     }

@@ -13,9 +13,10 @@ struct APIError: Codable, LocalizedError {
 }
 
 struct UserProfileRequest: Encodable {
-    let display_name: String?
-    let email: String?
+    let display_name: String
+    let email: String
     let bio: String?
+    let color: String?
 }
 
 enum NetworkError: LocalizedError {
@@ -37,7 +38,7 @@ enum NetworkError: LocalizedError {
 class NetworkService {
     static let shared = NetworkService()
     private let baseURL = "http://localhost:8000/api/v1"
-    // private let baseURL = "http://10.68.96.135:8000/api/v1"
+    // private let baseURL = "http://192.168.1.109:8000/api/v1"
     private let authManager = AuthManager.shared
     
     private init() {}
@@ -170,7 +171,19 @@ class NetworkService {
     func register(email: String, password: String) async throws -> AuthResponse {
         let url = URL(string: baseURL + "/auth/register")!
         let body = ["email": email, "password": password]
-        return try await post(url: url, body: body)
+        
+        // Debug: Print registration request
+        print("🔍 Registration request body:")
+        print(body)
+        
+        let response: AuthResponse = try await post(url: url, body: body)
+        
+        // Debug: Print registration response
+        print("✅ Registration response:")
+        print("Access token: \(response.access_token)")
+        print("User ID: \(response.user_id)")
+        
+        return response
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -186,10 +199,71 @@ class NetworkService {
     }
 
     // MARK: - User Profile
-    func createUserProfile(jwt: String, displayName: String, email: String, bio: String?) async throws -> UserProfile {
+    func createUserProfile(jwt: String, userId: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
         let url = URL(string: baseURL + "/users")!
-        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio)
-        return try await post(url: url, body: body, jwt: jwt)
+        
+        // Include user_id in the request to link to the auth record
+        let body: [String: Any] = [
+            "user_id": userId,
+            "display_name": displayName,
+            "email": email,
+            "bio": bio ?? "No bio yet",
+            "color": color ?? "red"
+        ]
+        
+        // Debug: Print the request body
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("🔍 Creating user profile with body:")
+            print(jsonString)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        request.httpBody = jsonData
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+        
+        // Debug: Print response
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("🔍 Backend response (\(httpResponse.statusCode)):")
+            print(responseString)
+        }
+        
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(UserProfile.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
+    }
+    
+    func updateUserProfile(jwt: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
+        let url = URL(string: baseURL + "/users/me")!
+        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, color: color)
+        
+        // Debug: Print the request body
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        if let jsonData = try? encoder.encode(body),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("🔍 Updating user profile with body:")
+            print(jsonString)
+        }
+        
+        return try await patch(url: url, body: body, jwt: jwt)
     }
 
     func getCurrentUserProfile(jwt: String) async throws -> UserProfile {
@@ -213,7 +287,7 @@ class NetworkService {
 
     func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?) async throws -> UserProfile {
         let url = URL(string: baseURL + "/users/me")!
-        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio)
+        let body = UserProfileRequest(display_name: displayName ?? "", email: email ?? "", bio: bio, color: nil)
         return try await patch(url: url, body: body, jwt: jwt)
     }
 
@@ -407,6 +481,12 @@ class NetworkService {
                 throw NetworkError.decodingFailed(error)
             }
         } else {
+            // Debug: Print error response
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("❌ Backend error response (\(httpResponse.statusCode)):")
+                print(errorString)
+            }
+            
             if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
                 throw apiError
             } else {
@@ -444,6 +524,65 @@ class NetworkService {
         } else {
             return []
         }
+    }
+
+    func getOtherUserProfile(userId: String) async throws -> UserProfile {
+        let url = URL(string: baseURL + "/users/\(userId)")!
+        print("🔍 Getting other user profile for ID: \(userId)")
+        print("🔍 URL: \(url)")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let jwt = authManager.jwt {
+            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            // Debug: Print error response
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("❌ Backend error response (\((response as? HTTPURLResponse)?.statusCode ?? 0)):")
+                print(errorString)
+            }
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(UserProfile.self, from: data)
+    }
+
+    func searchUsers(displayName: String) async throws -> [UserSearchResult] {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        var urlComponents = URLComponents(string: baseURL + "/users/search")!
+        urlComponents.queryItems = [URLQueryItem(name: "display_name", value: displayName)]
+        var request = URLRequest(url: urlComponents.url!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        print("User search response:", String(data: data, encoding: .utf8) ?? "No data")
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        
+        // Decode the response wrapper
+        struct UserSearchResponse: Codable {
+            let users: [UserSearchResult]
+        }
+        
+        let searchResponse = try JSONDecoder().decode(UserSearchResponse.self, from: data)
+        return searchResponse.users
+    }
+
+    func createUserProfileWithId(userId: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
+        let url = URL(string: baseURL + "/users/\(userId)")!
+        let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, color: color)
+        
+        // Debug: Print the request body
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        if let jsonData = try? encoder.encode(body),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("🔍 Creating user profile with ID \(userId) and body:")
+            print(jsonString)
+        }
+        
+        return try await post(url: url, body: body, jwt: nil) // No JWT needed for initial creation
     }
 }
  

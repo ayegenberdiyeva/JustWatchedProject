@@ -1,0 +1,62 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - CELERY_BROKER_URL=${AZURE_REDIS_CONNECTION_STRING}
+      - CELERY_RESULT_BACKEND=${AZURE_REDIS_CONNECTION_STRING}
+      - AZURE_OPENAI_KEY=${AZURE_OPENAI_KEY}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT}
+      - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    environment:
+      - ENVIRONMENT=production
+      - CELERY_BROKER_URL=${AZURE_REDIS_CONNECTION_STRING}
+      - CELERY_RESULT_BACKEND=${AZURE_REDIS_CONNECTION_STRING}
+      - AZURE_OPENAI_KEY=${AZURE_OPENAI_KEY}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT}
+      - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json:ro
+    restart: unless-stopped
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info --concurrency=4
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    environment:
+      - ENVIRONMENT=production
+      - CELERY_BROKER_URL=${AZURE_REDIS_CONNECTION_STRING}
+      - CELERY_RESULT_BACKEND=${AZURE_REDIS_CONNECTION_STRING}
+      - AZURE_OPENAI_KEY=${AZURE_OPENAI_KEY}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT}
+      - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json:ro
+    restart: unless-stopped
+    command: celery -A app.celery_worker.celery_app beat --loglevel=info 

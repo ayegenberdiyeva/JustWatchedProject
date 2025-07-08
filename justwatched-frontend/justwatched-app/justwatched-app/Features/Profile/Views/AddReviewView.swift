@@ -11,6 +11,11 @@ struct AddReviewView: View {
     // Callback to notify parent of successful review addition
     var onReviewAdded: (() -> Void)?
     
+    // Helper to hide keyboard
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+    
     init(selectedMovie: Movie? = nil, selectedTVShow: TVShow? = nil, onReviewAdded: (() -> Void)? = nil) {
         let viewModel = AddReviewViewModel()
         if let movie = selectedMovie {
@@ -42,62 +47,54 @@ struct AddReviewView: View {
                 } else {
                     Color.black.ignoresSafeArea()
                 }
-                VStack(spacing: 0) {
-                    searchBar
-                    if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
-                        searchResultsList
-                    } else {
-                        glassForm
+                VStack {
+                    // Spacer(minLength: 0)
+                    VStack(spacing: 0) {
+                        if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
+                            searchBar
+                        } else {
+                            HStack {
+                                // Spacer()
+                                Button(action: {
+                                    viewModel.selectedMovie = nil
+                                    viewModel.selectedTVShow = nil
+                                    viewModel.searchText = ""
+                                    viewModel.searchResults = []
+                                    viewModel.rating = 0
+                                    viewModel.reviewText = ""
+                                }) {
+                                    Text("Change media selection")
+                                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.white.opacity(0.15))
+                                        .foregroundColor(preferredColor)
+                                        .cornerRadius(16)
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        }
+                        if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
+                            searchResultsList
+                        } else {
+                            glassForm
+                                .padding()
+                                .frame(maxWidth: 500)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    // Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 24)
-                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
             .navigationTitle("Add Review")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        viewModel.selectedMovie = nil
-                        viewModel.selectedTVShow = nil
-                        viewModel.rating = 0
-                        viewModel.reviewText = ""
-                        viewModel.searchText = ""
-                        viewModel.searchResults = []
-                        viewModel.status = "watched"
-                        viewModel.selectedCollections = []
-                        dismiss()
-                    }
-                        .foregroundColor(.white)
+                    // Placeholder for the removed Cancel button
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if viewModel.selectedMovie != nil || viewModel.selectedTVShow != nil {
-                        Button("Save") {
-                            Task {
-                                await viewModel.submitReview()
-                                if viewModel.success {
-                                    viewModel.selectedMovie = nil
-                                    viewModel.selectedTVShow = nil
-                                    viewModel.rating = 0
-                                    viewModel.reviewText = ""
-                                    viewModel.searchText = ""
-                                    viewModel.searchResults = []
-                                    viewModel.status = "watched"
-                                    viewModel.selectedCollections = []
-                                    showSuccess = true
-                                }
-                            }
-                        }
-                        .disabled(viewModel.rating == 0 || viewModel.isLoading)
-                        .opacity((viewModel.rating == 0 || viewModel.isLoading) ? 0.5 : 1.0)
-                        .overlay {
-                            if viewModel.isLoading {
-                                ProgressView().scaleEffect(0.8)
-                            }
-                        }
-                        .foregroundColor(preferredColor)
-                    }
+                    // Placeholder for the removed Save button
                 }
             }
             .alert("Error", isPresented: $showError) {
@@ -143,6 +140,7 @@ struct AddReviewView: View {
                 }
             }
         }
+        .ignoresSafeArea(.keyboard)
     }
 
     private var preferredColor: Color {
@@ -158,41 +156,30 @@ struct AddReviewView: View {
 
     private var searchBar: some View {
         HStack {
-            ZStack(alignment: .leading) {
-                if viewModel.searchText.isEmpty {
-                    Text("Search for a movie or TV show...")
-                        .foregroundColor(preferredColor)
-                        .padding(.leading, 28)
-                }
+            ZStack(alignment: .trailing) {
+                // TextField with left and right padding, always reserve space for button
                 TextField("", text: $viewModel.searchText)
                     .textFieldStyle(PlainTextFieldStyle())
-                    .padding(10)
+                    .padding(8)
                     .background(Color.secondary.opacity(0.5))
                     .foregroundColor(.white)
                     .cornerRadius(12)
                     .accentColor(preferredColor) // text cursor color
-                    .padding(.horizontal)
                     .onChange(of: viewModel.searchText) { _, _ in
                         Task { await viewModel.searchMoviesAndTVShows() }
                     }
-            }
-            if viewModel.selectedMovie != nil || viewModel.selectedTVShow != nil {
-                Button(action: {
-                    viewModel.selectedMovie = nil
-                    viewModel.selectedTVShow = nil
-                    viewModel.searchText = ""
-                    viewModel.searchResults = []
-                    viewModel.rating = 0
-                    viewModel.reviewText = ""
-                }) {
-                    Text("Change")
-                        .font(.caption)
-                        .foregroundColor(preferredColor)
+                // Placeholder
+                if viewModel.searchText.isEmpty {
+                    HStack {
+                        Text("Search for a movie or TV show...")
+                            .foregroundColor(preferredColor)
+                            .padding(.leading, 8)
+                            .allowsHitTesting(false)
+                        Spacer()
+                    }
                 }
-                .padding(.trailing)
             }
         }
-        .padding(.vertical, 8)
     }
 
     private var searchResultsList: some View {
@@ -204,9 +191,11 @@ struct AddReviewView: View {
                         case .movie(let movie):
                             viewModel.selectedMovie = movie
                             viewModel.searchText = movie.title
+                            hideKeyboard()
                         case .tvShow(let show):
                             viewModel.selectedTVShow = show
                             viewModel.searchText = show.name
+                            hideKeyboard()
                         }
                     }) {
                         HStack(spacing: 12) {
@@ -256,6 +245,7 @@ struct AddReviewView: View {
                     .frame(width: 60, height: 90)
                     .cornerRadius(10)
                 }
+                
                 VStack(alignment: .leading, spacing: 4) {
                     Text(viewModel.selectedMovie?.title ?? viewModel.selectedTVShow?.name ?? "")
                         .font(.title2.bold())
@@ -266,6 +256,7 @@ struct AddReviewView: View {
                             .foregroundColor(.white)
                     }
                 }
+                
                 Spacer()
             }
             // Emoji rating
@@ -317,25 +308,32 @@ struct AddReviewView: View {
                 Text("Your Review")
                     .font(.headline.bold())
                     .foregroundColor(.white)
-                let textPadding = EdgeInsets(top: 10, leading: 8, bottom: 8, trailing: 8)
-                ZStack(alignment: .topLeading) {
-                    if viewModel.reviewText.isEmpty {
-                        Text("Write your review here...")
-                            .foregroundColor(.white.opacity(0.4))
-                            .padding(textPadding)
-                    }
-                    ZStack {
-                        Color.secondary.opacity(0.25)
+                let outerHeight: CGFloat = 200
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.secondary.opacity(0.25))
+                    ZStack(alignment: .topLeading) {
+                        if viewModel.reviewText.isEmpty {
+                            Text("Write your review here...")
+                                .foregroundColor(.white.opacity(0.4))
+                                .font(.system(size: 19))
+                                .padding(EdgeInsets(top: 10, leading: 8, bottom: 0, trailing: 0))
+                                .multilineTextAlignment(.leading)
+                        }
                         TextEditor(text: $viewModel.reviewText)
-                            .frame(height: 100)
                             .foregroundColor(.white)
                             .accentColor(preferredColor)
-                            .font(.body)
+                            .font(.system(size: 19))
                             .scrollContentBackground(.hidden)
-                            .padding(textPadding)
+                            .padding(4)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(Color.clear)
                     }
-                    .cornerRadius(10)
+                    .padding(4)
                 }
+                .frame(height: outerHeight)
+                .frame(maxWidth: .infinity)
             }
             // Collections
             HStack {
@@ -379,8 +377,63 @@ struct AddReviewView: View {
                     }
                 }
             }
+            if viewModel.selectedMovie != nil || viewModel.selectedTVShow != nil {
+                HStack(spacing: 16) {
+                    Button(action: {
+                        viewModel.selectedMovie = nil
+                        viewModel.selectedTVShow = nil
+                        viewModel.rating = 0
+                        viewModel.reviewText = ""
+                        viewModel.searchText = ""
+                        viewModel.searchResults = []
+                        viewModel.status = "watched"
+                        viewModel.selectedCollections = []
+                        hideKeyboard()
+                        dismiss()
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white.opacity(0.15))
+                            .foregroundColor(preferredColor)
+                            .cornerRadius(16)
+                    }
+                    Button(action: {
+                        Task {
+                            await viewModel.submitReview()
+                            if viewModel.success {
+                                viewModel.selectedMovie = nil
+                                viewModel.selectedTVShow = nil
+                                viewModel.rating = 0
+                                viewModel.reviewText = ""
+                                viewModel.searchText = ""
+                                viewModel.searchResults = []
+                                viewModel.status = "watched"
+                                viewModel.selectedCollections = []
+                                showSuccess = true
+                            }
+                        }
+                    }) {
+                        Text("Save")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(preferredColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(16)
+                    }
+                    .disabled(viewModel.rating == 0 || viewModel.isLoading)
+                    .opacity((viewModel.rating == 0 || viewModel.isLoading) ? 0.5 : 1.0)
+                    .overlay {
+                        if viewModel.isLoading {
+                            ProgressView().scaleEffect(0.8)
+                        }
+                    }
+                }
+            }
         }
-        .padding(28)
+        .padding()
         .background(Color.black.opacity(0.7).blur(radius: 0.5))
         .cornerRadius(28)
         .padding(.horizontal, 16)
@@ -388,7 +441,7 @@ struct AddReviewView: View {
     }
 }
 
-#Preview {
-    AddReviewView()
-} 
- 
+//#Preview {
+//    AddReviewView()
+//} 
+// 

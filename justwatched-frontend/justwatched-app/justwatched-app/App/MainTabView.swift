@@ -24,9 +24,9 @@ struct MainTabView: View {
                     Text("Home")
                 }
             
-            SearchResultsView()
+            FriendsFeedView()
                 .tabItem {
-                    Label("Search", systemImage: "magnifyingglass")
+                    Label("Friends", systemImage: "person.2.fill")
                 }
             
             AddReviewView()

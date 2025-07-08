@@ -38,10 +38,22 @@ class FriendCRUD:
             requests = []
             for doc in sent_requests:
                 if doc.exists:
-                    requests.append(doc.to_dict())
+                    req = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in req and hasattr(req["created_at"], "isoformat"):
+                        req["created_at"] = req["created_at"].isoformat()
+                    if "responded_at" in req and req["responded_at"] and hasattr(req["responded_at"], "isoformat"):
+                        req["responded_at"] = req["responded_at"].isoformat()
+                    requests.append(req)
             for doc in received_requests:
                 if doc.exists:
-                    requests.append(doc.to_dict())
+                    req = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in req and hasattr(req["created_at"], "isoformat"):
+                        req["created_at"] = req["created_at"].isoformat()
+                    if "responded_at" in req and req["responded_at"] and hasattr(req["responded_at"], "isoformat"):
+                        req["responded_at"] = req["responded_at"].isoformat()
+                    requests.append(req)
             
             return requests
         

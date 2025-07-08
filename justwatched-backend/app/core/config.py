@@ -31,7 +31,12 @@ class Settings(BaseSettings):
     TMDB_API_KEY: str
 
     # Celery Configuration
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str = "redis://redis:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
+
+    AZURE_OPENAI_KEY: str
+    AZURE_ENDPOINT: str
+    AZURE_DEPLOYMENT_NAME: str
+    AZURE_API_VERSION: str = "2024-12-01-preview"
 
 settings = Settings() 

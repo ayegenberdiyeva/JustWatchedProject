@@ -5,16 +5,17 @@ from app.crud.review_crud import ReviewCRUD
 from app.crud.friend_crud import FriendCRUD
 from app.core.security import get_current_user
 from datetime import datetime
-from app.api.v1.endpoints.movies import TMDB_BASE_URL
 from app.core.config import settings
 from app.schemas.movie import Review, ReviewCreate, ReviewUpdate, MediaType
 from app.schemas.user import ReviewStatus
+from app.services.tmdb_service import TMDBService
 import httpx
 
 router = APIRouter()
 user_crud = UserCRUD()
 review_crud = ReviewCRUD()
 friend_crud = FriendCRUD()
+tmdb_service = TMDBService()
 
 async def fetch_media_details(media_type: MediaType, media_id: str) -> dict:
     """Fetch media details from TMDB based on media type."""
@@ -22,18 +23,22 @@ async def fetch_media_details(media_type: MediaType, media_id: str) -> dict:
     if not tmdb_api_key:
         raise HTTPException(status_code=500, detail="TMDB_API_KEY not set in environment")
 
-    url = f"{TMDB_BASE_URL}/{media_type.value}/{media_id}"
-    params = {"api_key": tmdb_api_key}
-    
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, params=params)
-    
-    if resp.status_code == 404:
-        raise HTTPException(status_code=404, detail=f"{media_type.value.title()} not found")
-    elif resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    
-    return resp.json()
+    # Use the TMDBService to get details
+    if media_type == MediaType.MOVIE:
+        return await tmdb_service.get_movie_details(media_id)
+    elif media_type == MediaType.TV:
+        # You may need to implement get_tv_details in TMDBService
+        url = f"https://api.themoviedb.org/3/tv/{media_id}"
+        params = {"api_key": tmdb_api_key}
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params)
+        if resp.status_code == 404:
+            raise HTTPException(status_code=404, detail="TV show not found")
+        elif resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported media type")
 
 @router.post("/", response_model=Review)
 async def post_review(

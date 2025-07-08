@@ -4,8 +4,12 @@ struct ProfileView: View {
     @StateObject private var viewModel = ProfileViewModel()
     @ObservedObject private var authManager = AuthManager.shared
     @State private var showEditProfile = false
-    @State private var showAddReview = false
+    @State private var navigateToAddReview = false
     @State private var selectedReview: Review? = nil
+    @StateObject private var friendVM = ProfileFriendViewModel()
+    // Replace with the actual userId being viewed (for now, use AuthManager.shared.userProfile?.id for own profile)
+    var viewedUserId: String? { viewModel.userProfile?.id }
+    var isOwnProfile: Bool { viewedUserId == AuthManager.shared.userProfile?.id }
     
     var body: some View {
         NavigationStack {
@@ -14,11 +18,19 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         profileHeader
+                        if let userId = viewedUserId, !isOwnProfile {
+                            friendActionButtons(userId: userId)
+                        }
                         statsCard
                         actionButtons
                         reviewsGallery
                         // reviewsList
                         logoutButton
+                        NavigationLink(destination: AddReviewView(onReviewAdded: {
+                            Task { await viewModel.fetchProfile() }
+                        }), isActive: $navigateToAddReview) {
+                            EmptyView()
+                        }
                     }
                     .padding(.top)
                 }
@@ -46,13 +58,6 @@ struct ProfileView: View {
                 }
             }) {
                 EditProfileView(viewModel: EditProfileViewModel(profileViewModel: viewModel))
-            }
-            .sheet(isPresented: $showAddReview) {
-                AddReviewView(onReviewAdded: {
-                    Task {
-                        await viewModel.fetchProfile()
-                    }
-                })
             }
             .sheet(item: $selectedReview) { review in
                 ReviewDetailSheet(review: review)
@@ -134,7 +139,7 @@ struct ProfileView: View {
                     .foregroundColor(.black)
                     .cornerRadius(16)
             }
-            Button(action: { showAddReview = true }) {
+            Button(action: { navigateToAddReview = true }) {
                 Label("Add Review", systemImage: "plus")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .frame(maxWidth: .infinity)
@@ -244,6 +249,57 @@ struct ProfileView: View {
                 .foregroundColor(Color(hex: "393B3D"))
         }
         .frame(maxWidth: .infinity)
+    }
+    
+    // --- FRIEND ACTION BUTTONS ---
+    @ViewBuilder
+    private func friendActionButtons(userId: String) -> some View {
+        VStack(spacing: 8) {
+            if let error = friendVM.error {
+                Text(error).foregroundColor(.red)
+            }
+            if friendVM.isLoading {
+                ProgressView()
+            } else {
+                switch friendVM.friendStatus {
+                case "not_friends":
+                    Button("Add Friend") {
+                        Task { await friendVM.sendRequest(to: userId) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                case "pending_sent":
+                    Button("Friend Request Sent") {}
+                        .disabled(true)
+                        .buttonStyle(.bordered)
+                case "pending_received":
+                    HStack {
+                        Button("Accept") {
+                            if let reqId = friendVM.pendingRequestId {
+                                Task { await friendVM.respondToRequest(requestId: reqId, action: "accept") }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Decline") {
+                            if let reqId = friendVM.pendingRequestId {
+                                Task { await friendVM.respondToRequest(requestId: reqId, action: "decline") }
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                case "friends":
+                    Button("Remove Friend") {
+                        Task { await friendVM.removeFriend(userId: userId) }
+                    }
+                    .buttonStyle(.bordered)
+                default:
+                    EmptyView()
+                }
+            }
+        }
+        .onAppear {
+            Task { await friendVM.checkStatus(with: userId) }
+        }
+        .padding(.horizontal)
     }
 }
 

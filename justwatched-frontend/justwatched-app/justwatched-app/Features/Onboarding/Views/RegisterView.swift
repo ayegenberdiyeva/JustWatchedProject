@@ -32,14 +32,14 @@ struct RegisterView: View {
                 
                 TextField("", text: $viewModel.displayName)
                     .placeholder(when: viewModel.displayName.isEmpty) {
-                        Text("Display Name (optional)")
+                        Text("Username")
                             .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }
                     .textContentType(.nickname)
                     .autocapitalization(.words)
-                    .accessibilityLabel("Display name")
-                    .accessibilityHint("Enter your display name (optional)")
+                    .accessibilityLabel("Username")
+                    .accessibilityHint("Enter your username")
                     .padding()
                     .background(Color(hex: "393B3D").opacity(0.3))
                     .foregroundColor(.white)
@@ -47,7 +47,7 @@ struct RegisterView: View {
                 
                 SecureField("", text: $viewModel.password)
                     .placeholder(when: viewModel.password.isEmpty) {
-                        Text("Password")
+                        Text("Password, minimum 6 characters")
                             .foregroundColor(Color(hex: "393B3D"))
                             .fontWeight(.medium)
                     }

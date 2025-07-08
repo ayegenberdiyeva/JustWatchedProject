@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
 from enum import Enum
 from datetime import datetime
@@ -28,7 +28,20 @@ class FriendStatus(str, Enum):
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
-    display_name: Optional[str] = None
+    display_name: str  # Now required and unique
+
+    @validator('display_name')
+    def validate_display_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Display name cannot be empty')
+        if len(v.strip()) < 3:
+            raise ValueError('Display name must be at least 3 characters long')
+        if len(v.strip()) > 30:
+            raise ValueError('Display name must be at most 30 characters long')
+        # Only allow alphanumeric characters, underscores, and hyphens
+        if not v.replace('_', '').replace('-', '').replace(' ', '').isalnum():
+            raise ValueError('Display name can only contain letters, numbers, spaces, underscores, and hyphens')
+        return v.strip()
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -37,7 +50,7 @@ class UserLogin(BaseModel):
 class UserProfile(BaseModel):
     user_id: str
     email: EmailStr
-    display_name: Optional[str] = None
+    display_name: str  # Now required
     color: UserColor = UserColor.RED  # default to red
 
 class Collection(BaseModel):

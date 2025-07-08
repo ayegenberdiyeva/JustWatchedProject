@@ -1,0 +1,43 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    command: celery -A app.celery_worker.celery_app beat --loglevel=info
+    volumes:
+      - ./firebase-key.json:/app/firebase-key.json
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"

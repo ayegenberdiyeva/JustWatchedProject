@@ -1,6 +1,19 @@
 import httpx
 from app.core.config import settings
-from app.api.v1.endpoints.movies import TMDB_BASE_URL, get_tmdb_search_endpoint
+
+# TMDB API constants
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+
+def get_tmdb_search_endpoint(search_type: str = 'movie') -> str:
+    """Get the appropriate TMDB search endpoint based on search type."""
+    if search_type == 'movie':
+        return f"{TMDB_BASE_URL}/search/movie"
+    elif search_type == 'tv':
+        return f"{TMDB_BASE_URL}/search/tv"
+    elif search_type == 'person':
+        return f"{TMDB_BASE_URL}/search/person"
+    else:
+        return f"{TMDB_BASE_URL}/search/movie"
 
 class TMDBService:
     def __init__(self):

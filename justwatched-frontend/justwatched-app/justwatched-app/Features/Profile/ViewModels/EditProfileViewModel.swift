@@ -17,7 +17,7 @@ class EditProfileViewModel: ObservableObject {
         self.profileViewModel = profileViewModel
         if let profile = AuthManager.shared.userProfile {
             self.displayName = profile.displayName ?? ""
-            self.email = profile.email
+            self.email = profile.email ?? ""
             self.color = profile.color ?? "red"
         }
     } 

@@ -82,6 +82,10 @@ class AuthViewModel: ObservableObject {
             error = "Email is required."
             return
         }
+        guard !displayName.isEmpty else {
+            error = "Username is required."
+            return
+        }
         guard !password.isEmpty else {
             error = "Password is required."
             return
@@ -96,14 +100,7 @@ class AuthViewModel: ObservableObject {
         }
         
         do {
-            try await authManager.register(email: email, password: password)
-            if !displayName.isEmpty {
-                try await authManager.updateCurrentUserProfile(
-                    displayName: displayName,
-                    email: email,
-                    bio: "No bio yet"
-                )
-            }
+            try await authManager.register(email: email, password: password, displayName: displayName)
             isRegistered = true
         } catch {
             // Handle specific error types

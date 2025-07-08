@@ -3,12 +3,13 @@ from typing import Optional, List
 from app.services.search_history_service import SearchHistoryService
 from app.schemas.search import SearchHistoryResponse, SearchAnalytics, SearchHistoryRequest
 from app.core.security import get_current_user
-from app.api.v1.endpoints.movies import TMDB_BASE_URL, get_tmdb_search_endpoint
 from app.core.config import settings
+from app.services.tmdb_service import TMDBService
 import httpx
 
 router = APIRouter()
 search_history_service = SearchHistoryService()
+tmdb_service = TMDBService()
 
 @router.get("/search-history", response_model=SearchHistoryResponse)
 async def get_search_history(
@@ -153,27 +154,21 @@ async def search_with_history(
     user_id = user["sub"] if isinstance(user, dict) else user.sub
     
     try:
-        # First, perform the actual search using TMDB API
         tmdb_api_key = settings.TMDB_API_KEY
         if not tmdb_api_key:
             raise HTTPException(status_code=500, detail="TMDB_API_KEY not set in environment")
         
-        # Handle multi-search differently
+        # Use TMDBService for all searches
         if search_type.lower() == "multi":
-            url = f"{TMDB_BASE_URL}/search/multi"
+            url = f"{tmdb_service.TMDB_BASE_URL}/search/multi"
             params = {"api_key": tmdb_api_key, "query": query}
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            search_results = resp.json()
         else:
-            # Get the appropriate endpoint for specific search type
-            url = get_tmdb_search_endpoint(search_type)
-            params = {"api_key": tmdb_api_key, "query": query}
-        
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params)
-        
-        if resp.status_code != 200:
-            raise HTTPException(status_code=resp.status_code, detail=resp.text)
-        
-        search_results = resp.json()
+            search_results = await tmdb_service.search_movies(query, search_type)
         
         # Record the search in history
         result = await search_history_service.search_with_history_tracking(

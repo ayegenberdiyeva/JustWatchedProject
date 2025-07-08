@@ -1,6 +1,5 @@
 from app.crud.room_crud import RoomCRUD
 from app.crud.taste_profile_crud import TasteProfileCRUD
-from app.agents.tasks import find_group_recommendations
 from app.websocket_manager import send_group_recommendations
 from typing import List, Dict, Any, Optional
 
@@ -67,6 +66,7 @@ class RoomService:
                 return {"error": "No participants with taste profiles found"}
             
             # Launch AI task asynchronously
+            from app.tasks.recommendation_tasks import find_group_recommendations
             find_group_recommendations.delay(room_id, taste_profiles)
             
             return {
