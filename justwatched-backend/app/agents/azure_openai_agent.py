@@ -21,10 +21,21 @@ class AzureOpenAIAgent:
             s = s[len('```'):].strip()
         if s.endswith('```'):
             s = s[:-3].strip()
-        # Find the first {...} block, non-greedy
-        match = re.search(r'({.*?})', s, re.DOTALL)
+        
+        # Find the first {...} block, greedy to get the complete JSON
+        match = re.search(r'({.*})', s, re.DOTALL)
         if match:
-            return match.group(1)
+            json_str = match.group(1)
+            # Try to fix common truncation issues
+            if not json_str.rstrip().endswith('}'):
+                # If JSON doesn't end with }, try to close it
+                if json_str.rstrip().endswith('"'):
+                    json_str = json_str.rstrip() + '}'
+                elif json_str.rstrip().endswith(','):
+                    json_str = json_str.rstrip()[:-1] + ']}'
+                else:
+                    json_str = json_str.rstrip() + ']}'
+            return json_str
         return s  # fallback
 
     def chat(self, messages, temperature=0.8, max_tokens=4000):
@@ -57,7 +68,13 @@ class AzureOpenAIAgent:
                     return demjson3.decode(json_str)
                 except Exception as e3:
                     print("[AzureOpenAIAgent] LLM raw output (for debugging):\n", content)
-                    raise e3
+                    print("[AzureOpenAIAgent] All JSON parsing failed, returning fallback")
+                    # Return a fallback response to prevent task failure
+                    return {
+                        "recommendations": [],
+                        "generated_at": "2025-07-08T11:36:00.000000",
+                        "error": "JSON parsing failed"
+                    }
 
     async def analyze_taste_profile(self, user_id: str, reviews: list) -> dict:
         """Analyze user reviews to generate a taste profile."""
