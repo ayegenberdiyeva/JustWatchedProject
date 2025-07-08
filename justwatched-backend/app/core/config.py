@@ -12,13 +12,13 @@ class Settings(BaseSettings):
     FIREBASE_API_KEY: str  # Firebase Web API Key for client operations
 
     # OpenAI Configuration
-    OPENAI_API_KEY: str
+    # OPENAI_API_KEY: str
 
-    # OpenAI Assistant IDs
-    TASTE_PROFILER_ASSISTANT_ID: str
-    PERSONAL_RECOMMEDER_ASSISTABT_ID: str
-    ROOM_MODERATOR_ASSISTANT_ID: str
-    CREATIVE_ASSET_ASSISTANT_ID: str
+    # # OpenAI Assistant IDs
+    # TASTE_PROFILER_ASSISTANT_ID: str
+    # PERSONAL_RECOMMEDER_ASSISTABT_ID: str
+    # ROOM_MODERATOR_ASSISTANT_ID: str
+    # CREATIVE_ASSET_ASSISTANT_ID: str
 
     # JWT Settings
     JWT_SECRET_KEY: str = "supersecret"  # Should be overridden in production
