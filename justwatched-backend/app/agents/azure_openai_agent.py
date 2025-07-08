@@ -47,7 +47,8 @@ class AzureOpenAIAgent:
         data = {
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"}
         }
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
@@ -101,7 +102,7 @@ class AzureOpenAIAgent:
             {
                 "role": "system",
                 "content": """You are a film taste analyzer. Analyze the user's movie reviews and create a comprehensive taste profile. 
-                Return ONLY a JSON object with the following structure:
+                You must respond with valid JSON only. Return a JSON object with the following structure:
                 {
                     "user_id": "string",
                     "favorite_genres": ["list", "of", "genres"],
@@ -126,8 +127,8 @@ class AzureOpenAIAgent:
         messages = [
             {
                 "role": "system",
-                "content": """You are a movie recommendation expert. Generate 20 personalized movie recommendations.
-                Return ONLY a JSON object with the following structure:
+                "content": """You are a movie recommendation expert. Generate 10 personalized movie recommendations.
+                You must respond with valid JSON only. Return a JSON object with the following structure:
                 {
                     "recommendations": [
                         {
