@@ -27,7 +27,7 @@ class AzureOpenAIAgent:
             return match.group(1)
         return s  # fallback
 
-    def chat(self, messages, temperature=0.8, max_tokens=1500):
+    def chat(self, messages, temperature=0.8, max_tokens=4000):
         url = f"{self.endpoint}/openai/deployments/{self.deployment}/chat/completions?api-version={self.api_version}"
         headers = {
             "api-key": self.api_key,
@@ -130,7 +130,7 @@ class AzureOpenAIAgent:
             }
         ]
         
-        return self.chat(messages, temperature=0.7)
+        return self.chat(messages, temperature=0.7, max_tokens=6000)
 
     async def generate_group_recommendations(self, room_id: str, taste_profiles: list) -> dict:
         """Generate group recommendations based on multiple taste profiles."""
