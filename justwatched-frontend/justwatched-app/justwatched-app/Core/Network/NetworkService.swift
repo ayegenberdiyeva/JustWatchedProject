@@ -38,7 +38,7 @@ enum NetworkError: LocalizedError {
 class NetworkService {
     static let shared = NetworkService()
     // private let baseURL = "http://localhost:8000/api/v1"
-    private let baseURL = "http://132.220.224.42:8000/api/v1"
+    private let baseURL = "http://132.220.224.42/api/v1"
     private let authManager = AuthManager.shared
     
     private init() {}
