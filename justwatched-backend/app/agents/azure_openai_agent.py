@@ -127,7 +127,7 @@ class AzureOpenAIAgent:
         messages = [
             {
                 "role": "system",
-                "content": """You are a movie recommendation expert. Generate 10 personalized movie recommendations.
+                "content": """You are a movie recommendation expert. Generate 20 personalized movie recommendations.
                 You must respond with valid JSON only. Return a JSON object with the following structure:
                 {
                     "recommendations": [

@@ -38,6 +38,11 @@ struct FriendsFeedView: View {
                 NavigationLink(destination: FriendRequestsView(), isActive: $navigateToFriendRequests) { EmptyView() }
                     .hidden()
             )
+            .task {
+                if AuthManager.shared.isAuthenticated {
+                    try? await AuthManager.shared.refreshUserProfile()
+                }
+            }
         }
     }
 }

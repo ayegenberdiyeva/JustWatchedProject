@@ -4,8 +4,7 @@ import SwiftUI
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var recommendations: [RecommendationResult] = []
-    @Published var tasteProfile: String? = nil
-    @Published var lastUpdated: String? = nil
+    @Published var generatedAt: String? = nil
     @Published var isLoading = false
     @Published var error: String? = nil
 
@@ -31,8 +30,7 @@ class HomeViewModel: ObservableObject {
                 if httpResponse.statusCode == 404 {
                     error = "No recommendations yet, please check back later."
                     recommendations = []
-                    tasteProfile = nil
-                    lastUpdated = nil
+                    generatedAt = nil
                     isLoading = false
                     return
                 }
@@ -46,8 +44,7 @@ class HomeViewModel: ObservableObject {
             // Try to decode
             let recs = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
             recommendations = recs.recommendations
-            tasteProfile = recs.taste_profile
-            lastUpdated = recs.last_updated
+            generatedAt = recs.generatedAt
             
         } catch let decodingError as DecodingError {
             print("Decoding error: \(decodingError)")

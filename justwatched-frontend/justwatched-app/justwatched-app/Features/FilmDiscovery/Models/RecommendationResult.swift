@@ -3,12 +3,16 @@ import Foundation
 struct RecommendationResult: Codable, Identifiable, Hashable {
     let id: String // maps to movie_id
     let title: String
-    let reason: String?
-    let score: Double?
+    let posterPath: String?
+    let confidenceScore: Double?
+    let reasoning: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "movie_id"
-        case title, reason, score
+        case title
+        case posterPath = "poster_path"
+        case confidenceScore = "confidence_score"
+        case reasoning
     }
 }
 
@@ -24,6 +28,10 @@ struct PersonalRecommendationList: Codable {
 
 struct UserRecommendationsResponse: Codable {
     let recommendations: [RecommendationResult]
-    let taste_profile: String?
-    let last_updated: String?
+    let generatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case recommendations
+        case generatedAt = "generated_at"
+    }
 } 

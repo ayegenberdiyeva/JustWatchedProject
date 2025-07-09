@@ -38,17 +38,22 @@ struct AddReviewView: View {
                         image
                             .resizable()
                             .scaledToFill()
+                            .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                             .blur(radius: 32)
                             .overlay(Color.black.opacity(0.7))
                             .ignoresSafeArea()
                     } placeholder: {
-                        Color.black.ignoresSafeArea()
+                        Color.black
+                            .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                            .ignoresSafeArea()
                     }
                 } else {
-                    Color.black.ignoresSafeArea()
+                    Color.black
+                        // .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+                        .ignoresSafeArea()
                 }
                 VStack {
-                    // Spacer(minLength: 0)
+                    // Spacer(maxHeight: 10)
                     VStack(spacing: 0) {
                         if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
                             searchBar
@@ -78,7 +83,7 @@ struct AddReviewView: View {
                             searchResultsList
                         } else {
                             glassForm
-                                .padding()
+                                // .padding()
                                 .frame(maxWidth: 500)
                         }
                     }
@@ -233,7 +238,7 @@ struct AddReviewView: View {
     }
 
     private var glassForm: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             // Media info
             HStack(alignment: .top, spacing: 16) {
                 if let posterPath = viewModel.selectedMovie?.posterPath ?? viewModel.selectedTVShow?.posterPath {
@@ -308,7 +313,7 @@ struct AddReviewView: View {
                 Text("Your Review")
                     .font(.headline.bold())
                     .foregroundColor(.white)
-                let outerHeight: CGFloat = 200
+                let outerHeight: CGFloat = 150
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.secondary.opacity(0.25))
@@ -347,33 +352,41 @@ struct AddReviewView: View {
                         .font(.subheadline.bold())
                 }
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(viewModel.collections) { collection in
-                        Button(action: {
-                            if viewModel.selectedCollections.contains(collection.id) {
-                                viewModel.selectedCollections.remove(collection.id)
-                            } else {
-                                viewModel.selectedCollections.insert(collection.id)
+            if viewModel.collections.isEmpty {
+                Text("No collections added yet")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(viewModel.collections) { collection in
+                            Button(action: {
+                                if viewModel.selectedCollections.contains(collection.id) {
+                                    viewModel.selectedCollections.remove(collection.id)
+                                } else {
+                                    viewModel.selectedCollections.insert(collection.id)
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: viewModel.selectedCollections.contains(collection.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(viewModel.selectedCollections.contains(collection.id) ? preferredColor : .white.opacity(0.7))
+                                    Text(collection.name)
+                                        .foregroundColor(.white)
+                                        .fontWeight(.medium)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                                .background(viewModel.selectedCollections.contains(collection.id) ? preferredColor.opacity(0.18) : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(preferredColor.opacity(0.5), lineWidth: 1)
+                                )
+                                .cornerRadius(16)
                             }
-                        }) {
-                            HStack {
-                                Image(systemName: viewModel.selectedCollections.contains(collection.id) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(viewModel.selectedCollections.contains(collection.id) ? preferredColor : .white.opacity(0.7))
-                                Text(collection.name)
-                                    .foregroundColor(.white)
-                                    .fontWeight(.medium)
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
-                            .background(viewModel.selectedCollections.contains(collection.id) ? preferredColor.opacity(0.18) : Color.clear)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(preferredColor.opacity(0.5), lineWidth: 1)
-                            )
-                            .cornerRadius(16)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
