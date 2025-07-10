@@ -12,6 +12,50 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Create .env file for deployment
+        run: |
+          cd justwatched-backend
+          # Create .env file from template with placeholder values for CI/CD
+          cat > .env << 'EOF'
+          # Production Environment Variables for CI/CD Deployment
+          
+          # Environment
+          ENVIRONMENT=production
+          
+          # Azure OpenAI Configuration (placeholder values for CI/CD)
+          AZURE_OPENAI_KEY=placeholder_key
+          AZURE_ENDPOINT=https://placeholder.openai.azure.com/
+          AZURE_DEPLOYMENT_NAME=placeholder_deployment
+          AZURE_API_VERSION=2024-12-01-preview
+          
+          # Redis Configuration (local for CI/CD)
+          AZURE_REDIS_CONNECTION_STRING=redis://redis:6379/0
+          
+          # TMDB API (placeholder)
+          TMDB_API_KEY=placeholder_tmdb_key
+          
+          # JWT Settings
+          JWT_SECRET_KEY=ci_cd_secret_key_for_testing_only_change_in_production
+          JWT_ALGORITHM=HS256
+          JWT_AUDIENCE=justwatched.app
+          JWT_ISSUER=justwatched.api
+          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+          
+          # Firebase Configuration
+          GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+          FIREBASE_API_KEY=placeholder_firebase_key
+          
+          # Application Insights
+          APPLICATIONINSIGHTS_CONNECTION_STRING=placeholder_app_insights
+          
+          # Celery Configuration
+          CELERY_BROKER_URL=redis://redis:6379/0
+          CELERY_RESULT_BACKEND=redis://redis:6379/0
+          
+          # Project Info
+          PROJECT_NAME=JustWatched
+          API_V1_STR=/api/v1
+
       - name: Clean up old Docker resources
         run: |
           cd justwatched-backend
@@ -40,6 +84,14 @@ jobs:
       - name: Build and run with Docker Compose
         run: |
           cd justwatched-backend
+          # Проверить наличие необходимых файлов
+          echo "Checking required files..."
+          ls -la
+          echo "Checking .env file..."
+          cat .env | head -5
+          echo "Checking docker-compose.yml..."
+          head -5 docker-compose.yml
+          
           # Принудительно пересобрать только если код изменился
           docker compose up -d --build
 
