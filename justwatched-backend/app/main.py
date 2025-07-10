@@ -64,4 +64,4 @@ async def root():
 
 @app.get("/test")
 async def test():
-    return {"message": "Hello, test ci/cd!"}
+    return {"message": "update"}
