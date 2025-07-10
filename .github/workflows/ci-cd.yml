@@ -14,7 +14,7 @@ jobs:
 
       - name: Clean up old Docker resources
         run: |
-          cd backend
+          cd justwatched-backend
           # Остановить и удалить старые контейнеры
           docker compose down --remove-orphans
 
@@ -39,7 +39,7 @@ jobs:
 
       - name: Build and run with Docker Compose
         run: |
-          cd backend
+          cd justwatched-backend
           # Принудительно пересобрать только если код изменился
           docker compose up -d --build
 
@@ -49,10 +49,10 @@ jobs:
           sleep 30
 
           # Проверить статус контейнеров
-          cd backend && docker compose ps
+          cd justwatched-backend && docker compose ps
 
           # Проверить логи на ошибки
-          if cd backend && docker compose logs web | grep -i error; then
+          if cd justwatched-backend && docker compose logs web | grep -i error; then
             echo "Errors found in logs!"
             exit 1
           fi
@@ -78,4 +78,4 @@ jobs:
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          cd backend && docker compose logs --tail=50
+          cd justwatched-backend && docker compose logs --tail=50
