@@ -22,5 +22,5 @@ jobs:
           echo "$BACK_ENV" > ./justwatched-backend/.env
           echo "📦 BACK_ENV:"
           cat ./justwatched-backend/.env  
-          docker compose -f ./justwatched-backend/docker-compose.production.yml down || echo "false"
+          docker compose down -f ./justwatched-backend/docker-compose.production.yml || echo "false"
           docker compose up -f ./justwatched-backend/docker-compose.production.yml -d --build
