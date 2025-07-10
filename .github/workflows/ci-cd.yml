@@ -3,7 +3,7 @@ name: Deploy FastAPI App via Docker Compose
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
