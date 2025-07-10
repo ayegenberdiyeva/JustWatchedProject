@@ -58,6 +58,7 @@ jobs:
 
       - name: Build and run with Docker compose
         run: |
+          cd justwatched-backend
           docker compose down
           docker compose up -d --build
 
