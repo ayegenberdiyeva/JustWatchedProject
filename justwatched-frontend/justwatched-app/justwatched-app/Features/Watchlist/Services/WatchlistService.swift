@@ -2,7 +2,7 @@ import Foundation
 
 actor WatchlistService {
     static let shared = WatchlistService()
-    private let baseURL = "http://localhost:8000/api/v1/watchlist"
+    private let baseURL = "http://132.220.224.42:8000/api/v1/watchlist/"
     private let session = URLSession.shared
     
     private init() {}
@@ -16,18 +16,34 @@ actor WatchlistService {
         request.httpMethod = "GET"
         request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         
+        print("🔍 Watchlist request URL: \(url)")
+        print("🔍 Watchlist request headers: \(request.allHTTPHeaderFields ?? [:])")
+        
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw WatchlistServiceError.requestFailed(statusCode: 500)
         }
         
+        print("🔍 Watchlist response status: \(httpResponse.statusCode)")
+        
         if httpResponse.statusCode == 404 {
             // Return empty watchlist if none exists
             return WatchlistResponse(items: [], totalCount: 0)
         }
         
+        if httpResponse.statusCode == 403 || httpResponse.statusCode == 401 {
+            print("❌ Authentication error: \(httpResponse.statusCode)")
+            // Handle authentication errors by signing out
+            await MainActor.run {
+                AuthManager.shared.signOut()
+                AppState.shared.isAuthenticated = false
+            }
+            throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
         guard httpResponse.statusCode == 200 else {
+            print("❌ Watchlist request failed: \(httpResponse.statusCode)")
             throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }
         
@@ -63,6 +79,15 @@ actor WatchlistService {
             throw WatchlistError.itemAlreadyInWatchlist
         }
         
+        if httpResponse.statusCode == 403 || httpResponse.statusCode == 401 {
+            // Handle authentication errors by signing out
+            await MainActor.run {
+                AuthManager.shared.signOut()
+                AppState.shared.isAuthenticated = false
+            }
+            throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
         guard httpResponse.statusCode == 200 else {
             throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }
@@ -71,7 +96,7 @@ actor WatchlistService {
     }
     
     func removeFromWatchlist(jwt: String, mediaId: String) async throws {
-        guard let url = URL(string: "\(baseURL)/\(mediaId)") else {
+        guard let url = URL(string: "\(baseURL)\(mediaId)") else {
             throw WatchlistServiceError.invalidURL
         }
         
@@ -89,13 +114,22 @@ actor WatchlistService {
             throw WatchlistError.itemNotInWatchlist
         }
         
+        if httpResponse.statusCode == 403 || httpResponse.statusCode == 401 {
+            // Handle authentication errors by signing out
+            await MainActor.run {
+                AuthManager.shared.signOut()
+                AppState.shared.isAuthenticated = false
+            }
+            throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
         guard httpResponse.statusCode == 200 else {
             throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }
     }
     
     func checkWatchlistStatus(jwt: String, mediaId: String) async throws -> Bool {
-        guard let url = URL(string: "\(baseURL)/check/\(mediaId)") else {
+        guard let url = URL(string: "\(baseURL)check/\(mediaId)") else {
             throw WatchlistServiceError.invalidURL
         }
         
@@ -107,6 +141,15 @@ actor WatchlistService {
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw WatchlistServiceError.requestFailed(statusCode: 500)
+        }
+        
+        if httpResponse.statusCode == 403 || httpResponse.statusCode == 401 {
+            // Handle authentication errors by signing out
+            await MainActor.run {
+                AuthManager.shared.signOut()
+                AppState.shared.isAuthenticated = false
+            }
+            throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }
         
         guard httpResponse.statusCode == 200 else {

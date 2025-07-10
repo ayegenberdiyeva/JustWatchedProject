@@ -18,7 +18,7 @@ struct FilmDetailView: View {
                     VStack(spacing: 24) {
                         // Poster
                         if let posterPath = posterPath {
-                            AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                            AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)

@@ -17,6 +17,10 @@ class WatchlistViewModel: ObservableObject {
             return
         }
         
+        // Debug: Check if user is authenticated
+        print("🔍 Fetching watchlist for authenticated user: \(authManager.isAuthenticated)")
+        print("🔍 JWT token exists: \(jwt != nil)")
+        
         isLoading = true
         error = nil
         
@@ -27,8 +31,10 @@ class WatchlistViewModel: ObservableObject {
             self.watchlistItems = response.items
             self.totalCount = response.totalCount
         } catch let e as LocalizedError {
+            print("❌ Watchlist error: \(e.localizedDescription)")
             self.error = e
         } catch {
+            print("❌ Watchlist error: \(error)")
             self.error = WatchlistServiceError.requestFailed(statusCode: 500)
         }
     }

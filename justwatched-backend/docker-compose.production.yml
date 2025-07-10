@@ -90,20 +90,20 @@ services:
     command: celery -A app.celery_worker.celery_app beat --loglevel=info --schedule=/app/celerybeat-data/schedule.db
 
 
-  nginx:
-    image: nginx:alpine
-    container_name: justwatched-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - backend
-    networks:
-      - justwatched-network
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: justwatched-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - justwatched-network
 
 volumes:
   redis_data:

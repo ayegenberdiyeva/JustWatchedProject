@@ -86,7 +86,7 @@ struct SearchResultsView: View {
                                         case .movie(let movie):
                                             HStack(alignment: .top, spacing: 12) {
                                                 if let posterPath = movie.posterPath {
-                                                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w200\(posterPath)")) { image in
+                                                    AsyncImage(url: posterPath.posterURL(size: "w200")) { image in
                                                         image.resizable()
                                                     } placeholder: {
                                                         Color.gray.opacity(0.2)
@@ -119,7 +119,7 @@ struct SearchResultsView: View {
                                         case .tvShow(let show):
                                             HStack(alignment: .top, spacing: 12) {
                                                 if let posterPath = show.posterPath {
-                                                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w200\(posterPath)")) { image in
+                                                    AsyncImage(url: posterPath.posterURL(size: "w200")) { image in
                                                         image.resizable()
                                                     } placeholder: {
                                                         Color.gray.opacity(0.2)
@@ -194,7 +194,7 @@ struct MovieDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let posterPath = movie.posterPath {
-                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                    AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                         image.resizable()
                             .aspectRatio(contentMode: .fit)
                     } placeholder: {

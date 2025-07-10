@@ -328,7 +328,7 @@ struct ReviewDetailSheet: View {
     var body: some View {
         VStack(spacing: 16) {
             if let posterPath = review.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w300\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w300")) { image in
                     image.resizable().aspectRatio(contentMode: .fit)
                 } placeholder: {
                     Color.gray.opacity(0.2)
@@ -368,7 +368,7 @@ struct ReviewCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if let posterPath = review.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w92")) { image in
                     image.resizable()
                 } placeholder: {
                     Color.gray.opacity(0.2)
@@ -436,7 +436,7 @@ struct GalleryReviewCard: View {
         ZStack(alignment: .bottom) {
             // Poster
             if let posterPath = review.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Color.gray.opacity(0.2)

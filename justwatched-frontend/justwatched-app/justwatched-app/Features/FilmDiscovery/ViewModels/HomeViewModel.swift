@@ -11,7 +11,7 @@ class HomeViewModel: ObservableObject {
     func fetchRecommendations(jwt: String) async {
         isLoading = true
         error = nil
-        guard let url = URL(string: "http://localhost:8000/api/v1/users/me/recommendations") else { 
+        guard let url = URL(string: "http://132.220.224.42:8000/api/v1/users/me/recommendations") else { 
             error = "Invalid URL"
             isLoading = false
             return 
@@ -45,6 +45,16 @@ class HomeViewModel: ObservableObject {
             let recs = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
             recommendations = recs.recommendations
             generatedAt = recs.generatedAt
+            
+            // Debug: Print poster paths
+            print("🔍 Decoded \(recommendations.count) recommendations")
+            for (index, rec) in recommendations.enumerated() {
+                print("🔍 Recommendation \(index): \(rec.title) (ID: \(rec.id))")
+                print("🔍 Poster path: \(rec.posterPath ?? "nil")")
+                if let posterPath = rec.posterPath {
+                    print("🔍 Poster URL: \(posterPath.posterURL(size: "w500")?.absoluteString ?? "nil")")
+                }
+            }
             
         } catch let decodingError as DecodingError {
             print("Decoding error: \(decodingError)")

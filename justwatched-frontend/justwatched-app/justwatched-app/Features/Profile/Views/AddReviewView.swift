@@ -34,7 +34,7 @@ struct AddReviewView: View {
             ZStack {
                 // Black background with blurred poster overlay
                 if let posterPath = viewModel.selectedMovie?.posterPath ?? viewModel.selectedTVShow?.posterPath {
-                    AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                    AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                         image
                             .resizable()
                             .scaledToFill()
@@ -205,7 +205,7 @@ struct AddReviewView: View {
                     }) {
                         HStack(spacing: 12) {
                             if let posterPath = result.posterPath {
-                                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(posterPath)")) { image in
+                                AsyncImage(url: posterPath.posterURL(size: "w92")) { image in
                                     image.resizable()
                                 } placeholder: {
                                     Color.gray.opacity(0.2)

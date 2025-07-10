@@ -175,7 +175,7 @@ struct WatchlistItemCard: View {
         HStack(spacing: 16) {
             // Poster
             if let posterPath = item.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w154\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w154")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)

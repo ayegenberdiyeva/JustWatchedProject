@@ -30,7 +30,7 @@ struct Friend: Codable, Identifiable {
 // MARK: - Service
 actor FriendsService {
     static let shared = FriendsService()
-    private let baseURL = "http://localhost:8000/api/v1/friends"
+    private let baseURL = "http://132.220.224.42:8000/api/v1/friends"
     private var jwt: String? { AuthManager.shared.jwt }
     private var session: URLSession { .shared }
 

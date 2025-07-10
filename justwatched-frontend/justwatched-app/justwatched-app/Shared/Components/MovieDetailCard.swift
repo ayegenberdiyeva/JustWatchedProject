@@ -7,7 +7,7 @@ struct MovieDetailCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let posterPath = movie.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                     image.resizable().aspectRatio(contentMode: .fit)
                 } placeholder: {
                     Color.gray.opacity(0.2)

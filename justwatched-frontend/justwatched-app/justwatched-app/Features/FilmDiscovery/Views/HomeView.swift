@@ -217,7 +217,7 @@ struct RecommendationCard: View {
         ZStack(alignment: .bottom) {
             // Poster Background
             if let posterPath = recommendation.posterPath {
-                AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w500\(posterPath)")) { image in
+                AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -288,7 +288,7 @@ struct RecommendationCard: View {
                     }
                     
                     WatchlistButton(
-                        mediaId: recommendation.id,
+                        mediaId: recommendation.movieId,
                         mediaType: recommendation.mediaType,
                         mediaTitle: recommendation.title,
                         posterPath: recommendation.posterPath
