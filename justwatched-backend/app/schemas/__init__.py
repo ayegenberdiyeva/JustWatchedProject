@@ -12,6 +12,7 @@ from .room import (
     RoomCreate, RoomUpdate, RoomResponse, RoomListResponse,
     RoomRecommendationResponse, RoomParticipant, RoomStatus, RoomRecommendation
 )
+from .watchlist import WatchlistItem, WatchlistItemCreate, WatchlistResponse, WatchlistCheckResponse
 
 __all__ = [
     "UserRegister",
@@ -36,5 +37,9 @@ __all__ = [
     "RoomRecommendationResponse",
     "RoomParticipant",
     "RoomStatus",
-    "RoomRecommendation"
+    "RoomRecommendation",
+    "WatchlistItem",
+    "WatchlistItemCreate",
+    "WatchlistResponse",
+    "WatchlistCheckResponse"
 ] 

@@ -6,6 +6,7 @@ struct ProfileView: View {
     @State private var showEditProfile = false
     @State private var navigateToAddReview = false
     @State private var selectedReview: Review? = nil
+    @State private var showWatchlist = false
     @StateObject private var friendVM = ProfileFriendViewModel()
     // Replace with the actual userId being viewed (for now, use AuthManager.shared.userProfile?.id for own profile)
     var viewedUserId: String? { viewModel.userProfile?.id }
@@ -25,6 +26,7 @@ struct ProfileView: View {
                         actionButtons
                         reviewsGallery
                         // reviewsList
+                        watchlistButton
                         logoutButton
                         NavigationLink(destination: AddReviewView(onReviewAdded: {
                             Task { await viewModel.fetchProfile() }
@@ -61,6 +63,9 @@ struct ProfileView: View {
             }
             .sheet(item: $selectedReview) { review in
                 ReviewDetailSheet(review: review)
+            }
+            .sheet(isPresented: $showWatchlist) {
+                WatchlistView()
             }
             .task {
                 await viewModel.fetchProfile()
@@ -106,7 +111,7 @@ struct ProfileView: View {
         HStack(spacing: 0) {
             statView(title: "Reviews", value: "\(viewModel.reviews.count)")
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
-            statView(title: "Watchlist", value: "0")
+            statView(title: "Watchlist", value: "\(viewModel.watchlistCount)")
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
             statView(title: "Groups", value: "0")
         }
@@ -164,6 +169,20 @@ struct ProfileView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 32)
+    }
+    
+    private var watchlistButton: some View {
+        Button(action: { showWatchlist = true }) {
+            Label("My Watchlist", systemImage: "list.bullet")
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.blue.opacity(0.15))
+                .foregroundColor(.blue)
+                .cornerRadius(16)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 16)
     }
     
     // --- GALLERY OF REVIEWS ---

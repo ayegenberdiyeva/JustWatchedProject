@@ -5,6 +5,7 @@ import SwiftUI
 class ProfileViewModel: ObservableObject {
     @Published var userProfile: UserProfile?
     @Published var reviews: [Review] = []
+    @Published var watchlistCount: Int = 0
     @Published var isLoading = false
     @Published var error: Error?
     
@@ -13,6 +14,7 @@ class ProfileViewModel: ObservableObject {
 
     private let networkService = NetworkService.shared
     private let authManager = AuthManager.shared
+    private let watchlistService = WatchlistService.shared
     
     init() {
         // Initialize with current auth manager state
@@ -40,6 +42,17 @@ class ProfileViewModel: ObservableObject {
             // Fetch reviews
             let fetchedReviews = try await networkService.fetchUserReviews()
             self.reviews = fetchedReviews
+            
+            // Fetch watchlist count
+            if let jwt = authManager.jwt {
+                do {
+                    let watchlistResponse = try await watchlistService.getWatchlist(jwt: jwt)
+                    self.watchlistCount = watchlistResponse.totalCount
+                } catch {
+                    // If watchlist fetch fails, set count to 0
+                    self.watchlistCount = 0
+                }
+            }
         } catch {
             self.error = error
         }

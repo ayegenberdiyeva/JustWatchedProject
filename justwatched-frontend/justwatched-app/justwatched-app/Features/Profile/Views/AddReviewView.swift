@@ -54,9 +54,9 @@ struct AddReviewView: View {
                 }
                 VStack {
                     // Spacer(maxHeight: 10)
-                    VStack(spacing: 0) {
+            VStack(spacing: 0) {
                         if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
-                            searchBar
+                searchBar
                         } else {
                             HStack {
                                 // Spacer()
@@ -79,9 +79,9 @@ struct AddReviewView: View {
                                 .padding(.vertical, 8)
                             }
                         }
-                        if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
-                            searchResultsList
-                        } else {
+                if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
+                    searchResultsList
+                } else {
                             glassForm
                                 // .padding()
                                 .frame(maxWidth: 500)
@@ -170,9 +170,9 @@ struct AddReviewView: View {
                     .foregroundColor(.white)
                     .cornerRadius(12)
                     .accentColor(preferredColor) // text cursor color
-                    .onChange(of: viewModel.searchText) { _, _ in
-                        Task { await viewModel.searchMoviesAndTVShows() }
-                    }
+                .onChange(of: viewModel.searchText) { _, _ in
+                    Task { await viewModel.searchMoviesAndTVShows() }
+                }
                 // Placeholder
                 if viewModel.searchText.isEmpty {
                     HStack {
@@ -354,7 +354,7 @@ struct AddReviewView: View {
             }
             if viewModel.collections.isEmpty {
                 Text("No collections added yet")
-                    .font(.subheadline)
+                .font(.subheadline)
                     .foregroundColor(.white.opacity(0.6))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
@@ -458,3 +458,4 @@ struct AddReviewView: View {
 //    AddReviewView()
 //} 
 // 
+ 

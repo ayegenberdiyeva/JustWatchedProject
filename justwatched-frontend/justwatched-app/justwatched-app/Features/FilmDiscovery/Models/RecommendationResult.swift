@@ -6,6 +6,7 @@ struct RecommendationResult: Codable, Identifiable, Hashable {
     let posterPath: String?
     let confidenceScore: Double?
     let reasoning: String?
+    let mediaType: String // "movie" or "tv"
 
     enum CodingKeys: String, CodingKey {
         case id = "movie_id"
@@ -13,6 +14,7 @@ struct RecommendationResult: Codable, Identifiable, Hashable {
         case posterPath = "poster_path"
         case confidenceScore = "confidence_score"
         case reasoning
+        case mediaType = "media_type"
     }
 }
 

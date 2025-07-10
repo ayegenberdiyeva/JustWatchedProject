@@ -89,7 +89,7 @@ services:
       - justwatched-network
     command: celery -A app.celery_worker.celery_app beat --loglevel=info --schedule=/app/celerybeat-data/schedule.db
 
-  # Nginx Reverse Proxy (Optional but recommended)
+
   nginx:
     image: nginx:alpine
     container_name: justwatched-nginx

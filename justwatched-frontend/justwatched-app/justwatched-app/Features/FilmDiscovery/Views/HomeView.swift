@@ -175,10 +175,6 @@ struct HomeView: View {
                             onAddReview: {
                                 selectedRecommendation = recommendation
                                 navigateToAddReview = true
-                            },
-                            onAddToWatchlist: {
-                                // TODO: Implement add to watchlist
-                                print("Add to watchlist: \(recommendation.title)")
                             }
                         )
                     }
@@ -205,7 +201,6 @@ struct HomeView: View {
 struct RecommendationCard: View {
     let recommendation: RecommendationResult
     let onAddReview: () -> Void
-    let onAddToWatchlist: () -> Void
     
     private let preferredColor: Color = {
         switch AuthManager.shared.userProfile?.color {
@@ -292,15 +287,13 @@ struct RecommendationCard: View {
                             .cornerRadius(12)
                     }
                     
-                    Button(action: onAddToWatchlist) {
-                        Label("Watchlist", systemImage: "bookmark.fill")
-                            .font(.caption.bold())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(preferredColor.opacity(0.2))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                    }
+                    WatchlistButton(
+                        mediaId: recommendation.id,
+                        mediaType: recommendation.mediaType,
+                        mediaTitle: recommendation.title,
+                        posterPath: recommendation.posterPath
+                    )
+                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(20)

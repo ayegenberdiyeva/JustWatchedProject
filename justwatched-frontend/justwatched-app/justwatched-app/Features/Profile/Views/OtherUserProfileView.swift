@@ -38,9 +38,9 @@ struct OtherUserProfileView: View {
                 .overlay(Color.black.opacity(0.5).cornerRadius(32))
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("Hi, ")
-                        .font(.title2)
-                        .foregroundColor(.white)
+                    // Text("Hi, ")
+                    //     .font(.title2)
+                    //     .foregroundColor(.white)
                     Text(profile.displayName ?? "UserName")
                         .font(.title2.bold())
                         .foregroundColor(.white)
