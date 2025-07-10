@@ -1,0 +1,81 @@
+name: Deploy FastAPI App via Docker Compose
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Clean up old Docker resources
+        run: |
+          cd backend
+          # Остановить и удалить старые контейнеры
+          docker compose down --remove-orphans
+
+          # Удалить неиспользуемые образы (старше 24 часов)
+          docker image prune -a --filter "until=24h" -f
+
+          # Удалить неиспользуемые volumes (кроме pg_data)
+          docker volume prune -f --filter "label!=keep"
+
+          # Удалить неиспользуемые networks
+          docker network prune -f
+
+          # Очистить build cache
+          docker builder prune -f
+
+      - name: Check disk space
+        run: |
+          echo "=== Disk usage before deployment ==="
+          df -h
+          echo "=== Docker system usage ==="
+          docker system df
+
+      - name: Build and run with Docker Compose
+        run: |
+          cd backend
+          # Принудительно пересобрать только если код изменился
+          docker compose up -d --build
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+
+          # Проверить статус контейнеров
+          cd backend && docker compose ps
+
+          # Проверить логи на ошибки
+          if cd backend && docker compose logs web | grep -i error; then
+            echo "Errors found in logs!"
+            exit 1
+          fi
+
+      - name: Health check
+        run: |
+          # Проверить, что API отвечает
+          curl -f http://localhost:8000/ || exit 1
+          echo "✅ Health check passed"
+
+      - name: Clean up after deployment
+        run: |
+          echo "=== Disk usage after deployment ==="
+          df -h
+
+          # Ограничить логи Docker (последние 100MB)
+          docker system prune -f --filter "until=168h"
+
+          # Показать итоговое использование
+          docker system df
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          cd backend && docker compose logs --tail=50
