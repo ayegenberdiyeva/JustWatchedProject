@@ -60,3 +60,8 @@ async def root():
         "environment": os.getenv("ENVIRONMENT", "development"),
         "docs": "/docs"
     }
+
+
+@app.get("/test")
+async def test():
+    return {"message": "Hello, World!"}
