@@ -11,6 +11,7 @@ jobs:
 
     env:
       BACK_ENV: ${{ vars.BACK_ENV }}
+      FIREBASE_KEY: ${{ vars.FIREBASE_KEY }}
 
     steps:
       - name: Checkout repository
@@ -21,6 +22,9 @@ jobs:
           docker system prune -f
           echo "$BACK_ENV" > ./justwatched-backend/.env
           echo "📦 BACK_ENV:"
+          echo "$FIREBASE_KEY" > ./justwatched-backend/firebase-key.json
+          echo "📦 FIREBASE_KEY:"
           cat ./justwatched-backend/.env  
+          cat ./justwatched-backend/firebase-key.json
           docker compose -f ./justwatched-backend/docker-compose.production.yml down || echo "Docker down failed"
           docker compose -f ./justwatched-backend/docker-compose.production.yml up -d --build
