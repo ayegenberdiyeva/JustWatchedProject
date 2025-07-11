@@ -457,10 +457,11 @@ def generate_moodboard_assets(movie_id: int):
 
 @celery_app.task(name="tasks.refresh_recommendations_for_all_users")
 def refresh_recommendations_for_all_users():
-    """Refresh AI-powered recommendations for all users (daily task)."""
+    """Refresh AI-powered recommendations for all users (scheduled task)."""
     try:
         from app.crud.user_crud import UserCRUD
         from app.crud.review_crud import ReviewCRUD
+        from app.core.redis_client import redis_client
         
         user_crud = UserCRUD()
         review_crud = ReviewCRUD()
@@ -473,6 +474,9 @@ def refresh_recommendations_for_all_users():
             users = loop.run_until_complete(user_crud.get_all_users())
             print(f"Starting AI recommendation refresh for {len(users)} users")
             
+            processed_count = 0
+            skipped_count = 0
+            
             for user in users:
                 user_id = user.get('user_id')
                 if not user_id:
@@ -482,13 +486,44 @@ def refresh_recommendations_for_all_users():
                     # Check if user has reviews (for taste profile generation)
                     reviews = loop.run_until_complete(review_crud.get_reviews_by_user(user_id))
                     
-                    # Always queue taste profile regeneration (AI will improve over time)
-                    generate_taste_profile.delay(user_id)
+                    # Check if recommendations already exist and are recent (within 12 hours)
+                    cache_key = f"user:{user_id}:recommendations"
+                    existing_data = redis_client.get(cache_key)
                     
-                    # Queue recommendation generation
-                    generate_personal_recommendations.delay(user_id)
+                    if existing_data:
+                        # Parse existing recommendations to check timestamp
+                        try:
+                            existing_recs = json.loads(existing_data)
+                            generated_at = existing_recs.get("generated_at")
+                            if generated_at:
+                                from datetime import datetime, timezone
+                                generated_time = datetime.fromisoformat(generated_at.replace('Z', '+00:00'))
+                                current_time = datetime.now(timezone.utc)
+                                hours_diff = (current_time - generated_time).total_seconds() / 3600
+                                
+                                # Skip if recommendations are less than 12 hours old
+                                if hours_diff < 12:
+                                    print(f"Skipping user {user_id} - recommendations are {hours_diff:.1f} hours old")
+                                    skipped_count += 1
+                                    continue
+                        except Exception:
+                            # If parsing fails, regenerate anyway
+                            pass
                     
-                    print(f"Queued AI recommendation refresh for user {user_id}")
+                    # Only process users with reviews or if no recent recommendations exist
+                    if reviews:
+                        # User has reviews - regenerate taste profile and recommendations
+                        generate_taste_profile.delay(user_id)
+                        generate_personal_recommendations.delay(user_id)
+                        print(f"Queued AI recommendation refresh for user {user_id} (has {len(reviews)} reviews)")
+                    else:
+                        # User has no reviews - just generate trending fallback
+                        # This will be handled by the API endpoint when user requests recommendations
+                        print(f"Skipping user {user_id} - no reviews yet")
+                        skipped_count += 1
+                        continue
+                    
+                    processed_count += 1
                     
                 except Exception as e:
                     print(f"Error processing user {user_id}: {e}")
@@ -497,7 +532,7 @@ def refresh_recommendations_for_all_users():
         finally:
             loop.close()
             
-        print("AI-powered recommendation refresh for all users completed.")
+        print(f"AI-powered recommendation refresh completed. Processed: {processed_count}, Skipped: {skipped_count}")
         
     except Exception as e:
         print(f"Error in refresh_recommendations_for_all_users: {e}") 

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from app.crud.user_crud import UserCRUD
-from app.crud.friend_crud import FriendCRUD
+from app.crud.friend_crud import FriendCRUD, FriendStatus
 from app.core.security import get_current_user
-from app.schemas.user import UserColor, FriendStatus
+from app.schemas.user import UserColor
 from datetime import datetime
 from app.core.config import settings
 from app.core.redis_client import redis_client
@@ -211,9 +211,123 @@ async def get_user_profile(
 
 @router.get("/me/recommendations")
 async def get_my_recommendations(current_user=Depends(get_current_user)):
+    """Get the current user's recommendations with fallback to trending movies."""
     user_id = current_user["sub"]
     cache_key = f"user:{user_id}:recommendations"
-    data = redis_client.get(cache_key)
-    if not data:
-        raise HTTPException(status_code=404, detail="No recommendations found. Please try again later.")
-    return json.loads(data) 
+    
+    try:
+        # Try to get cached recommendations
+        data = redis_client.get(cache_key)
+        if data:
+            return json.loads(data)
+        
+        # If no cached recommendations, try to generate them on-demand
+        from app.tasks.recommendation_tasks import generate_personal_recommendations
+        
+        # Check if user has any reviews first
+        from app.crud.review_crud import ReviewCRUD
+        review_crud = ReviewCRUD()
+        reviews = await review_crud.get_reviews_by_user(user_id)
+        
+        if not reviews:
+            # New user with no reviews - return trending movies as fallback
+            from app.services.tmdb_service import TMDBService
+            tmdb_service = TMDBService()
+            trending_movies = await tmdb_service.get_trending_movies(limit=10)
+            
+            fallback_recommendations = {
+                "user_id": user_id,
+                "recommendations": [
+                    {
+                        "tmdb_id": str(movie["id"]),
+                        "title": movie["title"],
+                        "poster_path": movie.get("poster_path"),
+                        "confidence_score": 0.7,
+                        "reasoning": f"Trending movie: {movie.get('overview', 'Popular film')[:100]}..."
+                    }
+                    for movie in trending_movies
+                ],
+                "generated_at": datetime.utcnow().isoformat(),
+                "generation_method": "trending_fallback"
+            }
+            
+            # Cache the fallback recommendations
+            redis_client.setex(cache_key, 3600, json.dumps(fallback_recommendations))  # 1 hour cache
+            
+            return fallback_recommendations
+        
+        # User has reviews - trigger recommendation generation
+        generate_personal_recommendations.delay(user_id)
+        
+        # Return a temporary response while generating
+        return {
+            "user_id": user_id,
+            "recommendations": [],
+            "generated_at": datetime.utcnow().isoformat(),
+            "generation_method": "generating",
+            "message": "Recommendations are being generated. Please try again in a few minutes."
+        }
+        
+    except Exception as e:
+        # If Redis is down or any other error, return trending movies
+        try:
+            from app.services.tmdb_service import TMDBService
+            tmdb_service = TMDBService()
+            trending_movies = await tmdb_service.get_trending_movies(limit=10)
+            
+            return {
+                "user_id": user_id,
+                "recommendations": [
+                    {
+                        "tmdb_id": str(movie["id"]),
+                        "title": movie["title"],
+                        "poster_path": movie.get("poster_path"),
+                        "confidence_score": 0.7,
+                        "reasoning": f"Trending movie: {movie.get('overview', 'Popular film')[:100]}..."
+                    }
+                    for movie in trending_movies
+                ],
+                "generated_at": datetime.utcnow().isoformat(),
+                "generation_method": "error_fallback"
+            }
+        except Exception:
+            # Final fallback if TMDB is also down
+            raise HTTPException(
+                status_code=503, 
+                detail="Recommendation service temporarily unavailable. Please try again later."
+            ) 
+
+@router.post("/me/recommendations/generate")
+async def generate_my_recommendations(current_user=Depends(get_current_user)):
+    """Manually trigger recommendation generation for the current user."""
+    user_id = current_user["sub"]
+    
+    try:
+        # Check if user has reviews
+        from app.crud.review_crud import ReviewCRUD
+        review_crud = ReviewCRUD()
+        reviews = await review_crud.get_reviews_by_user(user_id)
+        
+        if not reviews:
+            raise HTTPException(
+                status_code=400, 
+                detail="No reviews found. Please add some movie reviews first to generate personalized recommendations."
+            )
+        
+        # Trigger recommendation generation
+        from app.tasks.recommendation_tasks import generate_personal_recommendations
+        generate_personal_recommendations.delay(user_id)
+        
+        return {
+            "message": "Recommendation generation started. Check back in a few minutes.",
+            "user_id": user_id,
+            "review_count": len(reviews)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to trigger recommendation generation: {str(e)}"
+        ) 
