@@ -20,15 +20,36 @@ struct RecommendationResult: Codable, Identifiable, Hashable {
         case mediaType = "media_type"
     }
     
+    // Try multiple possible field names for movie ID
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        movieId = try container.decode(String.self, forKey: .movieId)
+        
+        // Try to decode movieId with different possible field names
+        if let movieId = try? container.decode(String.self, forKey: .movieId) {
+            self.movieId = movieId
+        } else {
+            // Try alternative field names
+            let altContainer = try decoder.container(keyedBy: AlternativeCodingKeys.self)
+            if let tmdbId = try? altContainer.decode(String.self, forKey: .tmdbId) {
+                self.movieId = tmdbId
+            } else if let id = try? altContainer.decode(String.self, forKey: .id) {
+                self.movieId = id
+            } else {
+                throw DecodingError.keyNotFound(CodingKeys.movieId, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Could not find movie_id, tmdb_id, or id field"))
+            }
+        }
+        
         title = try container.decode(String.self, forKey: .title)
         posterPath = try container.decodeIfPresent(String.self, forKey: .posterPath)
         confidenceScore = try container.decodeIfPresent(Double.self, forKey: .confidenceScore)
         reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning)
         // Default to "movie" if media_type is not present in the response
         mediaType = try container.decodeIfPresent(String.self, forKey: .mediaType) ?? "movie"
+    }
+    
+    private enum AlternativeCodingKeys: String, CodingKey {
+        case tmdbId = "tmdb_id"
+        case id
     }
 }
 

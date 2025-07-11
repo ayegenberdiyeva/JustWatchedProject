@@ -94,22 +94,31 @@ async def recommend_personal(data: PersonalRecommendRequest):
         
         # Prepare candidate movies for AI
         candidate_data = []
+        seen_movie_ids = set()  # Track seen movie IDs to avoid duplicates
+        
         for movie in filtered_candidates[:30]:  # Limit to top 30 for AI processing
-            candidate_data.append({
-                "tmdb_id": movie["id"],
-                "title": movie["title"],
-                "overview": movie.get("overview", ""),
-                "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
-                "release_date": movie.get("release_date", ""),
-                "poster_path": movie.get("poster_path"),
-                "vote_average": movie.get("vote_average", 0)
-            })
+            if movie["id"] not in seen_movie_ids:  # Only add if not already seen
+                candidate_data.append({
+                    "tmdb_id": movie["id"],
+                    "title": movie["title"],
+                    "overview": movie.get("overview", ""),
+                    "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
+                    "release_date": movie.get("release_date", ""),
+                    "poster_path": movie.get("poster_path"),
+                    "vote_average": movie.get("vote_average", 0)
+                })
+                seen_movie_ids.add(movie["id"])
         
         messages = [
             {"role": "system", "content": (
                 "You are a movie recommendation expert. You will receive a list of real movies from TMDB "
                 "and a user's taste profile. Your task is to select the best 20 movies from the provided list "
                 "that match the user's preferences.\n\n"
+                "IMPORTANT RULES:\n"
+                "1. Only use movies from the provided candidate list.\n"
+                "2. Each movie can appear ONLY ONCE in your recommendations.\n"
+                "3. Do not duplicate any movie titles or IDs.\n"
+                "4. Select exactly 20 unique movies.\n\n"
                 "Return a JSON object with this exact structure:\n"
                 "{\n"
                 '  "recommendations": [\n'
@@ -123,7 +132,7 @@ async def recommend_personal(data: PersonalRecommendRequest):
                 '  ],\n'
                 '  "generated_at": "timestamp"\n'
                 "}\n\n"
-                "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+                "CRITICAL: Ensure no duplicate tmdb_id values in the recommendations array."
             )},
             {"role": "user", "content": f"User Taste Profile: {json.dumps(profile, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
         ]
@@ -133,6 +142,20 @@ async def recommend_personal(data: PersonalRecommendRequest):
         # Validate and clean the response
         if not isinstance(result, dict) or "recommendations" not in result:
             raise HTTPException(status_code=500, detail="Invalid AI response format")
+        
+        # Deduplicate recommendations by tmdb_id
+        seen_ids = set()
+        unique_recommendations = []
+        
+        for rec in result["recommendations"]:
+            if isinstance(rec, dict) and "tmdb_id" in rec:
+                movie_id = str(rec["tmdb_id"])
+                if movie_id not in seen_ids:
+                    seen_ids.add(movie_id)
+                    unique_recommendations.append(rec)
+        
+        # Update the result with deduplicated recommendations
+        result["recommendations"] = unique_recommendations
         
         return result
         
@@ -176,22 +199,31 @@ async def recommend_group(data: GroupRecommendRequest):
         
         # Prepare candidate movies for AI
         candidate_data = []
+        seen_movie_ids = set()  # Track seen movie IDs to avoid duplicates
+        
         for movie in candidate_movies[:25]:  # Limit to top 25 for AI processing
-            candidate_data.append({
-                "tmdb_id": movie["id"],
-                "title": movie["title"],
-                "overview": movie.get("overview", ""),
-                "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
-                "release_date": movie.get("release_date", ""),
-                "poster_path": movie.get("poster_path"),
-                "vote_average": movie.get("vote_average", 0)
-            })
+            if movie["id"] not in seen_movie_ids:  # Only add if not already seen
+                candidate_data.append({
+                    "tmdb_id": movie["id"],
+                    "title": movie["title"],
+                    "overview": movie.get("overview", ""),
+                    "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
+                    "release_date": movie.get("release_date", ""),
+                    "poster_path": movie.get("poster_path"),
+                    "vote_average": movie.get("vote_average", 0)
+                })
+                seen_movie_ids.add(movie["id"])
         
         messages = [
             {"role": "system", "content": (
                 "You are a group movie recommendation expert. You will receive a list of real movies from TMDB "
                 "and multiple user taste profiles. Your task is to select 7-10 movies from the provided list "
                 "that would appeal to the group.\n\n"
+                "IMPORTANT RULES:\n"
+                "1. Only use movies from the provided candidate list.\n"
+                "2. Each movie can appear ONLY ONCE in your recommendations.\n"
+                "3. Do not duplicate any movie titles or IDs.\n"
+                "4. Select 7-10 unique movies.\n\n"
                 "Return a JSON object with this exact structure:\n"
                 "{\n"
                 '  "recommendations": [\n'
@@ -206,7 +238,7 @@ async def recommend_group(data: GroupRecommendRequest):
                 '  ],\n'
                 '  "generated_at": "timestamp"\n'
                 "}\n\n"
-                "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+                "CRITICAL: Ensure no duplicate tmdb_id values in the recommendations array."
             )},
             {"role": "user", "content": f"Group Taste Profiles: {json.dumps(profiles, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
         ]
@@ -216,6 +248,20 @@ async def recommend_group(data: GroupRecommendRequest):
         # Validate and clean the response
         if not isinstance(result, dict) or "recommendations" not in result:
             raise HTTPException(status_code=500, detail="Invalid AI response format")
+        
+        # Deduplicate recommendations by tmdb_id
+        seen_ids = set()
+        unique_recommendations = []
+        
+        for rec in result["recommendations"]:
+            if isinstance(rec, dict) and "tmdb_id" in rec:
+                movie_id = str(rec["tmdb_id"])
+                if movie_id not in seen_ids:
+                    seen_ids.add(movie_id)
+                    unique_recommendations.append(rec)
+        
+        # Update the result with deduplicated recommendations
+        result["recommendations"] = unique_recommendations
         
         return result
         

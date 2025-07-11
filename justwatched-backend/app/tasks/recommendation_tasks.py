@@ -123,16 +123,20 @@ def generate_personal_recommendations(user_id: str, taste_profile: dict = None):
             else:
                 # Prepare candidate movies for AI
                 candidate_data = []
+                seen_movie_ids = set()  # Track seen movie IDs to avoid duplicates
+                
                 for movie in filtered_candidates[:30]:  # Limit to top 30 for AI processing
-                    candidate_data.append({
-                        "tmdb_id": movie["id"],
-                        "title": movie["title"],
-                        "overview": movie.get("overview", ""),
-                        "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
-                        "release_date": movie.get("release_date", ""),
-                        "poster_path": movie.get("poster_path"),
-                        "vote_average": movie.get("vote_average", 0)
-                    })
+                    if movie["id"] not in seen_movie_ids:  # Only add if not already seen
+                        candidate_data.append({
+                            "tmdb_id": movie["id"],
+                            "title": movie["title"],
+                            "overview": movie.get("overview", ""),
+                            "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
+                            "release_date": movie.get("release_date", ""),
+                            "poster_path": movie.get("poster_path"),
+                            "vote_average": movie.get("vote_average", 0)
+                        })
+                        seen_movie_ids.add(movie["id"])
                 
                 # Generate AI-powered recommendations from real movie data
                 recommendations = loop.run_until_complete(
@@ -143,6 +147,21 @@ def generate_personal_recommendations(user_id: str, taste_profile: dict = None):
             if not recommendations or not isinstance(recommendations, dict):
                 print(f"AI returned invalid recommendations for {user_id}, using fallback")
                 recommendations = _create_tmdb_fallback_recommendations(user_id, tmdb_service, loop)
+            
+            # Deduplicate recommendations by tmdb_id
+            if "recommendations" in recommendations and isinstance(recommendations["recommendations"], list):
+                seen_ids = set()
+                unique_recommendations = []
+                
+                for rec in recommendations["recommendations"]:
+                    if isinstance(rec, dict) and "tmdb_id" in rec:
+                        movie_id = str(rec["tmdb_id"])
+                        if movie_id not in seen_ids:
+                            seen_ids.add(movie_id)
+                            unique_recommendations.append(rec)
+                
+                recommendations["recommendations"] = unique_recommendations
+                print(f"Deduplicated recommendations for {user_id}: {len(unique_recommendations)} unique movies")
             
             # Add metadata
             recommendations["user_id"] = user_id
@@ -190,6 +209,11 @@ async def _generate_ai_recommendations_from_candidates(agent, user_id: str, tast
             "You are a movie recommendation expert. You will receive a list of real movies from TMDB "
             "and a user's taste profile. Your task is to select the best 20 movies from the provided list "
             "that match the user's preferences.\n\n"
+            "IMPORTANT RULES:\n"
+            "1. Only use movies from the provided candidate list.\n"
+            "2. Each movie can appear ONLY ONCE in your recommendations.\n"
+            "3. Do not duplicate any movie titles or IDs.\n"
+            "4. Select exactly 20 unique movies.\n\n"
             "Return a JSON object with this exact structure:\n"
             "{\n"
             '  "recommendations": [\n'
@@ -203,7 +227,7 @@ async def _generate_ai_recommendations_from_candidates(agent, user_id: str, tast
             '  ],\n'
             '  "generated_at": "timestamp"\n'
             "}\n\n"
-            "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+            "CRITICAL: Ensure no duplicate tmdb_id values in the recommendations array."
         )},
         {"role": "user", "content": f"User Taste Profile: {json.dumps(taste_profile, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
     ]
@@ -312,16 +336,20 @@ def find_group_recommendations(room_id: str, taste_profiles: list):
             else:
                 # Prepare candidate movies for AI
                 candidate_data = []
+                seen_movie_ids = set()  # Track seen movie IDs to avoid duplicates
+                
                 for movie in candidate_movies[:25]:  # Limit to top 25 for AI processing
-                    candidate_data.append({
-                        "tmdb_id": movie["id"],
-                        "title": movie["title"],
-                        "overview": movie.get("overview", ""),
-                        "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
-                        "release_date": movie.get("release_date", ""),
-                        "poster_path": movie.get("poster_path"),
-                        "vote_average": movie.get("vote_average", 0)
-                    })
+                    if movie["id"] not in seen_movie_ids:  # Only add if not already seen
+                        candidate_data.append({
+                            "tmdb_id": movie["id"],
+                            "title": movie["title"],
+                            "overview": movie.get("overview", ""),
+                            "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
+                            "release_date": movie.get("release_date", ""),
+                            "poster_path": movie.get("poster_path"),
+                            "vote_average": movie.get("vote_average", 0)
+                        })
+                        seen_movie_ids.add(movie["id"])
                 
                 # Generate AI-powered group recommendations from real movie data
                 recommendations = loop.run_until_complete(
@@ -337,6 +365,21 @@ def find_group_recommendations(room_id: str, taste_profiles: list):
                     "generated_at": datetime.utcnow().isoformat(),
                     "generation_method": "ai_failed"
                 }
+            
+            # Deduplicate recommendations by tmdb_id
+            if "recommendations" in recommendations and isinstance(recommendations["recommendations"], list):
+                seen_ids = set()
+                unique_recommendations = []
+                
+                for rec in recommendations["recommendations"]:
+                    if isinstance(rec, dict) and "tmdb_id" in rec:
+                        movie_id = str(rec["tmdb_id"])
+                        if movie_id not in seen_ids:
+                            seen_ids.add(movie_id)
+                            unique_recommendations.append(rec)
+                
+                recommendations["recommendations"] = unique_recommendations
+                print(f"Deduplicated group recommendations for room {room_id}: {len(unique_recommendations)} unique movies")
             
             # Add metadata
             recommendations["room_id"] = room_id
@@ -390,6 +433,11 @@ async def _generate_ai_group_recommendations_from_candidates(agent, room_id: str
             "You are a group movie recommendation expert. You will receive a list of real movies from TMDB "
             "and multiple user taste profiles. Your task is to select 7-10 movies from the provided list "
             "that would appeal to the group.\n\n"
+            "IMPORTANT RULES:\n"
+            "1. Only use movies from the provided candidate list.\n"
+            "2. Each movie can appear ONLY ONCE in your recommendations.\n"
+            "3. Do not duplicate any movie titles or IDs.\n"
+            "4. Select 7-10 unique movies.\n\n"
             "Return a JSON object with this exact structure:\n"
             "{\n"
             '  "recommendations": [\n'
@@ -404,7 +452,7 @@ async def _generate_ai_group_recommendations_from_candidates(agent, room_id: str
             '  ],\n'
             '  "generated_at": "timestamp"\n'
             "}\n\n"
-            "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+            "CRITICAL: Ensure no duplicate tmdb_id values in the recommendations array."
         )},
         {"role": "user", "content": f"Group Taste Profiles: {json.dumps(taste_profiles, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
     ]
