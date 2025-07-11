@@ -34,10 +34,20 @@ class HomeViewModel: ObservableObject {
                 }
             }
             
+            // Debug: Print raw response
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("Raw API Response: \(jsonString)")
+            }
+            
             // Try to decode
             let recs = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
             recommendations = recs.recommendations
             generatedAt = recs.generatedAt
+            
+            // Debug: Print decoded recommendations
+            for (index, rec) in recs.recommendations.enumerated() {
+                print("Recommendation \(index): title=\(rec.title), posterPath=\(rec.posterPath ?? "nil")")
+            }
             
         } catch let decodingError as DecodingError {
             print("Decoding error: \(decodingError)")

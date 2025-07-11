@@ -200,10 +200,12 @@ struct ProfileView: View {
                                 review: review,
                                 onOpen: { selectedReview = review }
                             )
+                            .scrollTargetLayout()
                         }
                     }
                     .padding(.horizontal, 16)
                 }
+                .scrollTargetBehavior(.viewAligned)
             }
         }
     }

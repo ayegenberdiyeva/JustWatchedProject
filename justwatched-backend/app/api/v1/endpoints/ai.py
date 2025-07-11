@@ -99,7 +99,7 @@ async def recommend_personal(data: PersonalRecommendRequest):
                 "tmdb_id": movie["id"],
                 "title": movie["title"],
                 "overview": movie.get("overview", ""),
-                "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
                 "release_date": movie.get("release_date", ""),
                 "poster_path": movie.get("poster_path"),
                 "vote_average": movie.get("vote_average", 0)
@@ -181,7 +181,7 @@ async def recommend_group(data: GroupRecommendRequest):
                 "tmdb_id": movie["id"],
                 "title": movie["title"],
                 "overview": movie.get("overview", ""),
-                "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
                 "release_date": movie.get("release_date", ""),
                 "poster_path": movie.get("poster_path"),
                 "vote_average": movie.get("vote_average", 0)

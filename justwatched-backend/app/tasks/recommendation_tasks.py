@@ -128,7 +128,7 @@ def generate_personal_recommendations(user_id: str, taste_profile: dict = None):
                         "tmdb_id": movie["id"],
                         "title": movie["title"],
                         "overview": movie.get("overview", ""),
-                        "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                        "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
                         "release_date": movie.get("release_date", ""),
                         "poster_path": movie.get("poster_path"),
                         "vote_average": movie.get("vote_average", 0)
@@ -317,7 +317,7 @@ def find_group_recommendations(room_id: str, taste_profiles: list):
                         "tmdb_id": movie["id"],
                         "title": movie["title"],
                         "overview": movie.get("overview", ""),
-                        "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                        "genre_ids": movie.get("genre_ids", []),  # Keep as integer IDs
                         "release_date": movie.get("release_date", ""),
                         "poster_path": movie.get("poster_path"),
                         "vote_average": movie.get("vote_average", 0)
