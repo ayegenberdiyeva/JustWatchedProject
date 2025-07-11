@@ -26,6 +26,7 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             headerSection
+                                .frame(height: 150)
                             if viewModel.isLoading {
                                 ProgressView("Loading recommendations...")
                                     .tint(.white)

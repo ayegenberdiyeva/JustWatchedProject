@@ -58,39 +58,38 @@ struct AddReviewView: View {
                         if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
                 searchBar
                         } else {
-                            HStack {
-                                // Spacer()
-                                Button(action: {
-                                    viewModel.selectedMovie = nil
-                                    viewModel.selectedTVShow = nil
-                                    viewModel.searchText = ""
-                                    viewModel.searchResults = []
-                                    viewModel.rating = 0
-                                    viewModel.reviewText = ""
-                                }) {
-                                    Text("Change media selection")
-                                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.white.opacity(0.15))
-                                        .foregroundColor(preferredColor)
-                                        .cornerRadius(16)
-                                }
-                                .padding(.vertical, 8)
+                            Button(action: {
+                                viewModel.selectedMovie = nil
+                                viewModel.selectedTVShow = nil
+                                viewModel.searchText = ""
+                                viewModel.searchResults = []
+                                viewModel.rating = 0
+                                viewModel.reviewText = ""
+                            }) {
+                                Text("Change selection")
+                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.white.opacity(0.15))
+                                    .foregroundColor(preferredColor)
+                                    .cornerRadius(16)
                             }
+                            .padding(.vertical, 8)
+                            // .padding(.horizontal, 16)
                         }
                 if viewModel.selectedMovie == nil && viewModel.selectedTVShow == nil {
                     searchResultsList
                 } else {
                             glassForm
                                 // .padding()
-                                .frame(maxWidth: 500)
+                                .frame(maxWidth: .infinity)
                         }
                     }
                     .padding(.horizontal, 16)
                     // Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .ignoresSafeArea(.keyboard)
             }
             .navigationTitle("Add Review")
             .navigationBarTitleDisplayMode(.inline)
@@ -449,7 +448,7 @@ struct AddReviewView: View {
         .padding()
         .background(Color.black.opacity(0.7).blur(radius: 0.5))
         .cornerRadius(28)
-        .padding(.horizontal, 16)
+        // .padding(.horizontal, 16)
         .padding(.top, 32)
     }
 }
