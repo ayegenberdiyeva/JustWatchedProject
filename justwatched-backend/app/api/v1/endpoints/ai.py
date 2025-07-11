@@ -65,7 +65,7 @@ def recommend_personal(data: PersonalRecommendRequest):
         {"role": "system", "content": (
             "You are a movie recommendation engine.\n"
             "Return exactly 20 movies in JSON (key: tmdb_id, title, justification).\n"
-            "Use the given taste profile and avoid watched_movie_ids.\n"
+            "Use the given taste profile and do not recommend movies that are already in the watched_movie_ids.\n"
             "Strictly output only JSON, no extra text."
         )},
         {"role": "user", "content": f"TasteProfile: {json.dumps(profile)}\nWatched: {watched}"}

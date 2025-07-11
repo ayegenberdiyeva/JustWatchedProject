@@ -44,7 +44,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .navigationTitle("Recommendations")
+            .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -79,8 +79,8 @@ struct HomeView: View {
     }
     
     private var headerSection: some View {
-        ZStack {
-            let colorValue = AuthManager.shared.userProfile?.color ?? "red"
+        let colorValue = AuthManager.shared.userProfile?.color ?? "red"
+        return ZStack {
             AnimatedPaletteGradientBackground(paletteName: colorValue)
                 .cornerRadius(32)
                 .overlay(Color.black.opacity(0.5).cornerRadius(32))
@@ -107,7 +107,7 @@ struct HomeView: View {
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cornerRadius(32)
         .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 6)
         .padding(.horizontal)
@@ -177,10 +177,12 @@ struct HomeView: View {
                                 navigateToAddReview = true
                             }
                         )
+                        .scrollTargetLayout()
                     }
                 }
                 .padding(.horizontal, 16)
             }
+            .scrollTargetBehavior(.viewAligned)
         }
     }
     
@@ -238,7 +240,7 @@ struct RecommendationCard: View {
                 Spacer()
                 RoundedRectangle(cornerRadius: 24)
                     .fill(.ultraThinMaterial)
-                    .frame(height: 200)
+                    .frame(height: 240)
                     .frame(width: 300)
             }
             .frame(width: 300, height: 450)
@@ -250,7 +252,7 @@ struct RecommendationCard: View {
                     .font(.title2.bold())
                     .foregroundColor(.white)
                     .shadow(radius: 2)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .multilineTextAlignment(.leading)
                 
                 if let reasoning = recommendation.reasoning {
@@ -265,26 +267,32 @@ struct RecommendationCard: View {
                 if let score = recommendation.confidenceScore {
                     HStack {
                         Text("Match: \(Int(score * 100))%")
-                            .font(.caption.bold())
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.black.opacity(0.7))
                             .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(preferredColor.opacity(0.8))
-                            .cornerRadius(8)
+                            .cornerRadius(16)
                         Spacer()
                     }
                 }
                 
                 // Action Buttons
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Button(action: onAddReview) {
-                        Label("Review", systemImage: "star.fill")
-                            .font(.caption.bold())
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.white)
-                            .foregroundColor(.black)
-                            .cornerRadius(12)
+                        VStack {
+                            Text("Review")
+                                .font(.caption)
+                                .foregroundColor(preferredColor)
+                            Image(systemName: "star.fill")
+                                .font(.title3.bold())
+                                .foregroundColor(preferredColor)
+                                .frame(height: 20)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(Color.black.opacity(0.3))
+                        .cornerRadius(12)
                     }
                     
                     WatchlistButton(

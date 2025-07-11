@@ -10,34 +10,43 @@ struct WatchlistButton: View {
     @State private var isInWatchlist = false
     @State private var isLoading = false
     
+    private var preferredColor: Color {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
+    }
+    
     var body: some View {
         Button(action: {
             Task {
                 await toggleWatchlist()
             }
         }) {
-            HStack(spacing: 8) {
+            VStack {
+                Text(isLoading ? "Loading..." : (isInWatchlist ? "In Watchlist" : "Watchlist"))
+                    .font(.caption)
+                    .foregroundColor(isInWatchlist ? .white : preferredColor)
                 if isLoading {
                     ProgressView()
                         .scaleEffect(0.8)
-                        .tint(.white)
+                        .tint(isInWatchlist ? .white : preferredColor)
+                        .frame(height: 20)
                 } else {
                     Image(systemName: isInWatchlist ? "checkmark.circle.fill" : "plus.circle")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.title3.bold())
+                        .foregroundColor(isInWatchlist ? .white : preferredColor)
+                        .frame(height: 20)
                 }
-                
-                Text(isInWatchlist ? "In Watchlist" : "Add to Watchlist")
-                    .font(.system(size: 14, weight: .medium))
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                isInWatchlist 
-                    ? Color.green.opacity(0.8) 
-                    : Color.blue.opacity(0.8)
-            )
-            .cornerRadius(20)
+            .frame(maxWidth: .infinity)
+            .padding(8)
+            .background(isInWatchlist ? preferredColor : Color.black.opacity(0.3))
+            .cornerRadius(12)
         }
         .disabled(isLoading)
         .task {

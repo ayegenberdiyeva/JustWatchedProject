@@ -26,7 +26,6 @@ struct ProfileView: View {
                         actionButtons
                         reviewsGallery
                         // reviewsList
-                        watchlistButton
                         logoutButton
                         NavigationLink(destination: AddReviewView(onReviewAdded: {
                             Task { await viewModel.fetchProfile() }
@@ -111,7 +110,7 @@ struct ProfileView: View {
         HStack(spacing: 0) {
             statView(title: "Reviews", value: "\(viewModel.reviews.count)")
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
-            statView(title: "Watchlist", value: "\(viewModel.watchlistCount)")
+            clickableWatchlistStatView
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
             statView(title: "Groups", value: "0")
         }
@@ -171,18 +170,19 @@ struct ProfileView: View {
         .padding(.bottom, 32)
     }
     
-    private var watchlistButton: some View {
+    private var clickableWatchlistStatView: some View {
         Button(action: { showWatchlist = true }) {
-            Label("My Watchlist", systemImage: "list.bullet")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue.opacity(0.15))
-                .foregroundColor(.blue)
-                .cornerRadius(16)
+            VStack {
+                Text("\(viewModel.watchlistCount)")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("Watchlist")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(Color(hex: "393B3D"))
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 16)
+        .buttonStyle(PlainButtonStyle())
     }
     
     // --- GALLERY OF REVIEWS ---

@@ -11,7 +11,7 @@ class HomeViewModel: ObservableObject {
     func fetchRecommendations(jwt: String) async {
         isLoading = true
         error = nil
-        guard let url = URL(string: "http://132.220.224.42:8000/api/v1/users/me/recommendations") else { 
+        guard let url = URL(string: "https://itsjustwatched.com/api/v1/users/me/recommendations") else { 
             error = "Invalid URL"
             isLoading = false
             return 
@@ -25,8 +25,6 @@ class HomeViewModel: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("Response status code: \(httpResponse.statusCode)")
-                
                 if httpResponse.statusCode == 404 {
                     error = "No recommendations yet, please check back later."
                     recommendations = []
@@ -34,27 +32,12 @@ class HomeViewModel: ObservableObject {
                     isLoading = false
                     return
                 }
-                
-                // Debug: Print raw response
-                if let responseString = String(data: data, encoding: .utf8) {
-                    print("Raw response: \(responseString)")
-                }
             }
             
             // Try to decode
             let recs = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
             recommendations = recs.recommendations
             generatedAt = recs.generatedAt
-            
-            // Debug: Print poster paths
-            print("🔍 Decoded \(recommendations.count) recommendations")
-            for (index, rec) in recommendations.enumerated() {
-                print("🔍 Recommendation \(index): \(rec.title) (ID: \(rec.id))")
-                print("🔍 Poster path: \(rec.posterPath ?? "nil")")
-                if let posterPath = rec.posterPath {
-                    print("🔍 Poster URL: \(posterPath.posterURL(size: "w500")?.absoluteString ?? "nil")")
-                }
-            }
             
         } catch let decodingError as DecodingError {
             print("Decoding error: \(decodingError)")

@@ -2,7 +2,7 @@ import Foundation
 
 actor WatchlistService {
     static let shared = WatchlistService()
-    private let baseURL = "http://132.220.224.42:8000/api/v1/watchlist/"
+    private let baseURL = "https://itsjustwatched.com/api/v1/watchlist/"
     private let session = URLSession.shared
     
     private init() {}
@@ -16,16 +16,11 @@ actor WatchlistService {
         request.httpMethod = "GET"
         request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         
-        print("🔍 Watchlist request URL: \(url)")
-        print("🔍 Watchlist request headers: \(request.allHTTPHeaderFields ?? [:])")
-        
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw WatchlistServiceError.requestFailed(statusCode: 500)
         }
-        
-        print("🔍 Watchlist response status: \(httpResponse.statusCode)")
         
         if httpResponse.statusCode == 404 {
             // Return empty watchlist if none exists
