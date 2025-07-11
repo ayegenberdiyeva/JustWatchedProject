@@ -89,7 +89,7 @@ struct AddReviewView: View {
                     // Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .ignoresSafeArea(.keyboard)
+                // .ignoresSafeArea(.keyboard)
             }
             .navigationTitle("Add Review")
             .navigationBarTitleDisplayMode(.inline)

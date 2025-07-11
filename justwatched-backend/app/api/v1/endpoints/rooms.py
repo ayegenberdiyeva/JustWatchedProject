@@ -187,9 +187,19 @@ async def get_room_recommendations(
         
         for rec in stored_recs:
             if isinstance(rec, dict):
-                # Handle the AI assistant's response format
-                if "movie" in rec:
-                    # AI assistant format
+                # Handle the new TMDB-based AI assistant response format
+                if "tmdb_id" in rec:
+                    # New TMDB-based format
+                    transformed_recs.append({
+                        "movie_id": str(rec.get("tmdb_id", "")),
+                        "title": rec.get("title", "Unknown"),
+                        "poster_path": rec.get("poster_path"),
+                        "group_score": rec.get("group_score", 0.8),
+                        "reasons": rec.get("reasons", ["Recommended by AI"]),
+                        "participants_who_liked": rec.get("participants_who_liked", [])
+                    })
+                elif "movie" in rec:
+                    # Old AI assistant format (legacy)
                     movie_data = rec["movie"]
                     transformed_recs.append({
                         "movie_id": str(hash(movie_data.get("title", ""))),  # Generate ID from title
@@ -200,7 +210,7 @@ async def get_room_recommendations(
                         "participants_who_liked": []
                     })
                 else:
-                    # Our fallback format
+                    # Fallback format
                     transformed_recs.append(rec)
         
         return {

@@ -122,69 +122,6 @@ class AzureOpenAIAgent:
         
         return self.chat(messages, temperature=0.3)
 
-    async def generate_personal_recommendations(self, user_id: str, taste_profile: dict) -> dict:
-        """Generate personal movie recommendations based on taste profile."""
-        messages = [
-            {
-                "role": "system",
-                "content": """You are a movie recommendation expert. Generate 20 personalized movie recommendations.
-                You must respond with valid JSON only. Return a JSON object with the following structure:
-                {
-                    "recommendations": [
-                        {
-                            "movie_id": "string",
-                            "title": "string",
-                            "poster_path": "string or null",
-                            "confidence_score": 0.85,
-                            "reasoning": "string explaining why this movie matches the user's taste"
-                        }
-                    ],
-                    "generated_at": "timestamp"
-                }"""
-            },
-            {
-                "role": "user",
-                "content": f"Generate recommendations for user {user_id} with taste profile: {json.dumps(taste_profile, ensure_ascii=False)}"
-            }
-        ]
-        
-        return self.chat(messages, temperature=0.7, max_tokens=6000)
-
-    async def generate_group_recommendations(self, room_id: str, taste_profiles: list) -> dict:
-        """Generate group recommendations based on multiple taste profiles."""
-        profiles_text = "\n".join([
-            f"User {profile.get('user_id', 'unknown')}: {json.dumps(profile, ensure_ascii=False)}"
-            for profile in taste_profiles
-        ])
-        
-        messages = [
-            {
-                "role": "system",
-                "content": """You are a group movie recommendation expert. Generate 7-10 movies that would appeal to the group.
-                Return ONLY a JSON object with the following structure:
-                {
-                    "recommendations": [
-                        {
-                            "movie_id": "string",
-                            "title": "string",
-                            "poster_path": "string or null",
-                            "group_score": 0.85,
-                            "reasons": ["list", "of", "reasons"],
-                            "participants_who_liked": ["list", "of", "user_ids"]
-                        }
-                    ],
-                    "room_id": "string",
-                    "generated_at": "timestamp"
-                }"""
-            },
-            {
-                "role": "user",
-                "content": f"Generate group recommendations for room {room_id} with taste profiles:\n\n{profiles_text}"
-            }
-        ]
-        
-        return self.chat(messages, temperature=0.6)
-
     async def generate_moodboard(self, movie_id: int, movie_details: dict) -> dict:
         """Generate moodboard assets for a movie."""
         movie_info = f"Title: {movie_details.get('title', 'Unknown')}\n"

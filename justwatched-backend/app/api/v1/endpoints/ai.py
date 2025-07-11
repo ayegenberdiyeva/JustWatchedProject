@@ -3,9 +3,13 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import json
 from app.agents.azure_openai_agent import AzureOpenAIAgent
+from app.services.tmdb_service import TMDBService
+from app.services.user_data_service import UserDataService
 
 router = APIRouter()
 ai_agent = AzureOpenAIAgent()
+tmdb_service = TMDBService()
+user_data_service = UserDataService()
 
 # --- Schemas ---
 class TasteProfile(BaseModel):
@@ -39,96 +43,228 @@ class ReviewForAnalysis(BaseModel):
 class TasteAnalysisRequest(BaseModel):
     reviews: List[ReviewForAnalysis]
 
-# --- Utilities (stubs, replace with real logic as needed) ---
-def get_movie_details(movie_id: int) -> Dict[str, Any]:
-    # TODO: Replace with real TMDB lookup
-    return {"movie_id": movie_id, "title": "Stub Movie", "poster_url": "https://example.com/poster.jpg"}
+# --- Real TMDB-based utilities ---
+async def get_movie_details(movie_id: int) -> Dict[str, Any]:
+    """Get real movie details from TMDB."""
+    try:
+        return await tmdb_service.get_movie_details(movie_id)
+    except Exception as e:
+        print(f"Error fetching movie details for {movie_id}: {e}")
+        return {"id": movie_id, "title": "Unknown Movie", "poster_path": None}
 
-def find_atmospheric_images(movie_id: int) -> List[str]:
-    # TODO: Replace with real image search
-    return [f"https://example.com/image_{movie_id}_1.jpg", f"https://example.com/image_{movie_id}_2.jpg"]
+async def search_candidate_movies(taste_profile: Dict[str, Any], limit: int = 50) -> List[Dict[str, Any]]:
+    """Search for candidate movies based on taste profile using TMDB."""
+    return await tmdb_service.search_candidate_movies(taste_profile, limit)
 
-def find_music_tracks(movie_id: int) -> List[str]:
-    # TODO: Replace with real music search
-    return [f"track_{movie_id}_1", f"track_{movie_id}_2"]
-
-def extract_palette(poster_url: str) -> List[str]:
-    # TODO: Replace with real color extraction
-    return ["#1f1f1f", "#c0c0c0", "#3a3a3a", "#808080", "#fafafa"]
+async def get_trending_movies(limit: int = 20) -> List[Dict[str, Any]]:
+    """Get trending movies from TMDB as fallback."""
+    try:
+        return await tmdb_service.get_trending_movies(limit=limit)
+    except Exception as e:
+        print(f"Error fetching trending movies: {e}")
+        return []
 
 # --- Endpoints ---
 @router.post("/recommend/personal")
-def recommend_personal(data: PersonalRecommendRequest):
+async def recommend_personal(data: PersonalRecommendRequest):
+    """Generate personal recommendations using real TMDB data."""
     profile = data.taste_profile
     watched = data.watched_movie_ids
-    messages = [
-        {"role": "system", "content": (
-            "You are a movie recommendation engine.\n"
-            "Return exactly 20 movies in JSON (key: tmdb_id, title, justification).\n"
-            "Use the given taste profile and do not recommend movies that are already in the watched_movie_ids.\n"
-            "Strictly output only JSON, no extra text."
-        )},
-        {"role": "user", "content": f"TasteProfile: {json.dumps(profile)}\nWatched: {watched}"}
-    ]
+    
     try:
-        return ai_agent.chat(messages)
+        # Get candidate movies from TMDB based on taste profile
+        candidate_movies = await search_candidate_movies(profile, limit=50)
+        
+        # Filter out already watched movies
+        filtered_candidates = [
+            movie for movie in candidate_movies 
+            if movie["id"] not in watched
+        ]
+        
+        # If no candidates, use trending movies as fallback
+        if not filtered_candidates:
+            filtered_candidates = await get_trending_movies(20)
+            filtered_candidates = [
+                movie for movie in filtered_candidates 
+                if movie["id"] not in watched
+            ]
+        
+        if not filtered_candidates:
+            raise HTTPException(status_code=404, detail="No suitable movies found")
+        
+        # Prepare candidate movies for AI
+        candidate_data = []
+        for movie in filtered_candidates[:30]:  # Limit to top 30 for AI processing
+            candidate_data.append({
+                "tmdb_id": movie["id"],
+                "title": movie["title"],
+                "overview": movie.get("overview", ""),
+                "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                "release_date": movie.get("release_date", ""),
+                "poster_path": movie.get("poster_path"),
+                "vote_average": movie.get("vote_average", 0)
+            })
+        
+        messages = [
+            {"role": "system", "content": (
+                "You are a movie recommendation expert. You will receive a list of real movies from TMDB "
+                "and a user's taste profile. Your task is to select the best 20 movies from the provided list "
+                "that match the user's preferences.\n\n"
+                "Return a JSON object with this exact structure:\n"
+                "{\n"
+                '  "recommendations": [\n'
+                '    {\n'
+                '      "tmdb_id": "movie_id_from_list",\n'
+                '      "title": "movie_title_from_list",\n'
+                '      "poster_path": "poster_path_from_list",\n'
+                '      "confidence_score": 0.85,\n'
+                '      "reasoning": "explanation of why this movie matches the user\'s taste"\n'
+                '    }\n'
+                '  ],\n'
+                '  "generated_at": "timestamp"\n'
+                "}\n\n"
+                "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+            )},
+            {"role": "user", "content": f"User Taste Profile: {json.dumps(profile, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
+        ]
+        
+        result = ai_agent.chat(messages, temperature=0.7, max_tokens=6000)
+        
+        # Validate and clean the response
+        if not isinstance(result, dict) or "recommendations" not in result:
+            raise HTTPException(status_code=500, detail="Invalid AI response format")
+        
+        return result
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {e}")
 
 @router.post("/recommend/group")
-def recommend_group(data: GroupRecommendRequest):
+async def recommend_group(data: GroupRecommendRequest):
+    """Generate group recommendations using real TMDB data."""
     profiles = data.taste_profiles
-    messages = [
-        {"role": "system", "content": (
-            "You are a group movie selector AI.\n"
-            "Take the list of user taste profiles and suggest 7-10 movies.\n"
-            "Output JSON list with: tmdb_id, title, justification.\n"
-            "Mention which preferences were covered. No text outside JSON."
-        )},
-        {"role": "user", "content": f"TasteProfiles: {json.dumps(profiles)}"}
-    ]
+    
     try:
-        return ai_agent.chat(messages)
+        # Aggregate group preferences
+        all_genres = set()
+        all_actors = set()
+        all_directors = set()
+        
+        for profile in profiles:
+            all_genres.update(profile.get("favorite_genres", []))
+            all_actors.update(profile.get("favorite_actors", []))
+            all_directors.update(profile.get("favorite_directors", []))
+        
+        # Create aggregated taste profile
+        aggregated_profile = {
+            "favorite_genres": list(all_genres)[:5],  # Top 5 genres
+            "favorite_actors": list(all_actors)[:3],  # Top 3 actors
+            "favorite_directors": list(all_directors)[:3]  # Top 3 directors
+        }
+        
+        # Get candidate movies from TMDB based on aggregated profile
+        candidate_movies = await search_candidate_movies(aggregated_profile, limit=40)
+        
+        # If no candidates, use trending movies as fallback
+        if not candidate_movies:
+            candidate_movies = await get_trending_movies(20)
+        
+        if not candidate_movies:
+            raise HTTPException(status_code=404, detail="No suitable movies found")
+        
+        # Prepare candidate movies for AI
+        candidate_data = []
+        for movie in candidate_movies[:25]:  # Limit to top 25 for AI processing
+            candidate_data.append({
+                "tmdb_id": movie["id"],
+                "title": movie["title"],
+                "overview": movie.get("overview", ""),
+                "genres": [g["name"] for g in movie.get("genre_ids", [])],
+                "release_date": movie.get("release_date", ""),
+                "poster_path": movie.get("poster_path"),
+                "vote_average": movie.get("vote_average", 0)
+            })
+        
+        messages = [
+            {"role": "system", "content": (
+                "You are a group movie recommendation expert. You will receive a list of real movies from TMDB "
+                "and multiple user taste profiles. Your task is to select 7-10 movies from the provided list "
+                "that would appeal to the group.\n\n"
+                "Return a JSON object with this exact structure:\n"
+                "{\n"
+                '  "recommendations": [\n'
+                '    {\n'
+                '      "tmdb_id": "movie_id_from_list",\n'
+                '      "title": "movie_title_from_list",\n'
+                '      "poster_path": "poster_path_from_list",\n'
+                '      "group_score": 0.85,\n'
+                '      "reasons": ["reason1", "reason2"],\n'
+                '      "participants_who_liked": ["user_id1", "user_id2"]\n'
+                '    }\n'
+                '  ],\n'
+                '  "generated_at": "timestamp"\n'
+                "}\n\n"
+                "IMPORTANT: Only use movies from the provided candidate list. Do not invent new movies."
+            )},
+            {"role": "user", "content": f"Group Taste Profiles: {json.dumps(profiles, ensure_ascii=False)}\n\nCandidate Movies: {json.dumps(candidate_data, ensure_ascii=False)}"}
+        ]
+        
+        result = ai_agent.chat(messages, temperature=0.6, max_tokens=6000)
+        
+        # Validate and clean the response
+        if not isinstance(result, dict) or "recommendations" not in result:
+            raise HTTPException(status_code=500, detail="Invalid AI response format")
+        
+        return result
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {e}")
 
 @router.post("/generate/moodboard")
-def generate_moodboard(data: MoodboardRequest):
+async def generate_moodboard(data: MoodboardRequest):
+    """Generate moodboard using real TMDB movie data."""
     movie_id = data.movie_id
     notes = data.user_notes or ""
-    movie_details = get_movie_details(movie_id)
-    images = find_atmospheric_images(movie_id)
-    soundtrack = find_music_tracks(movie_id)
-    poster_url = movie_details.get("poster_url", "")
-    hex_colors = extract_palette(poster_url)
-    messages = [
-        {"role": "system", "content": (
-            "You're a creative moodboard assistant.\n"
-            "Using the movie metadata and user notes, generate a list of:\n"
-            "- 3–4 image URLs (frames/posters)\n"
-            "- 2–3 soundtrack tracks\n"
-            "- 5 hex color codes\n"
-            "Return a JSON object: images, music, colors. No other text."
-        )},
-        {"role": "user", "content": f"Movie info: {movie_details}, Notes: {notes}"}
-    ]
+    
     try:
+        # Get real movie details from TMDB
+        movie_details = await get_movie_details(movie_id)
+        
+        messages = [
+            {"role": "system", "content": (
+                "You're a creative moodboard assistant. Using the movie metadata and user notes, generate a list of:\n"
+                "- 3–4 image URLs (frames/posters)\n"
+                "- 2–3 soundtrack tracks\n"
+                "- 5 hex color codes\n"
+                "Return a JSON object: images, music, colors. No other text."
+            )},
+            {"role": "user", "content": f"Movie info: {json.dumps(movie_details, ensure_ascii=False)}, Notes: {notes}"}
+        ]
+        
         gpt_data = ai_agent.chat(messages)
-        # Merge external (stubbed) and AI data, AI data takes precedence
+        
+        # Return AI-generated moodboard data
         return {
-            "images": images,
-            "music": soundtrack,
-            "colors": hex_colors,
+            "movie_id": movie_id,
+            "movie_title": movie_details.get("title", "Unknown"),
+            "poster_path": movie_details.get("poster_path"),
             **gpt_data
         }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI error: {e}")
 
 @router.post("/analyze/taste")
-def analyze_taste(data: TasteAnalysisRequest):
+async def analyze_taste(data: TasteAnalysisRequest):
+    """Analyze taste profile from reviews."""
     reviews = [review.model_dump() for review in data.reviews]
     user_id = reviews[0]["user_id"] if "user_id" in reviews[0] else "user"
     watched_movie_ids = [review["movie_id"] for review in reviews]
+    
     messages = [
         {"role": "system", "content": (
             "You are a movie taste profile analyzer.\n"
@@ -139,6 +275,7 @@ def analyze_taste(data: TasteAnalysisRequest):
         )},
         {"role": "user", "content": f"Reviews: {json.dumps(reviews)}"}
     ]
+    
     try:
         taste_profile = ai_agent.chat(messages)
         # Ensure strict output format
