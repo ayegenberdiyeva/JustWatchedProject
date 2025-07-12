@@ -164,26 +164,57 @@ class RoomCRUD:
     async def save_room_recommendations(self, room_id: str, recommendations: List[dict]) -> bool:
         """Save recommendations for a room."""
         try:
+            # Ensure recommendations is a list
+            if isinstance(recommendations, dict) and "recommendations" in recommendations:
+                # If it's the full result object, extract just the recommendations
+                recommendations_list = recommendations["recommendations"]
+                generated_at = recommendations.get("generated_at", datetime.utcnow().isoformat())
+            else:
+                # If it's already a list
+                recommendations_list = recommendations
+                generated_at = datetime.utcnow().isoformat()
+            
             recommendation_data = {
                 "room_id": room_id,
-                "recommendations": recommendations,
-                "generated_at": datetime.utcnow().isoformat()
+                "recommendations": recommendations_list,
+                "generated_at": generated_at
             }
-            self.recommendations_collection.document(f"{room_id}_{datetime.utcnow().isoformat()}").set(recommendation_data)
+            
+            # Create document with room_id as the document ID for easier retrieval
+            doc_id = f"{room_id}_latest"
+            self.recommendations_collection.document(doc_id).set(recommendation_data)
+            
+            # Also save with timestamp for history
+            timestamp_doc_id = f"{room_id}_{datetime.utcnow().isoformat()}"
+            self.recommendations_collection.document(timestamp_doc_id).set(recommendation_data)
             
             # Update room status
             self.rooms_collection.document(room_id).update({
-                "status": "completed",
+                "status": "active",
                 "updated_at": datetime.utcnow().isoformat()
             })
             
+            print(f"Successfully saved {len(recommendations_list)} recommendations for room {room_id}")
             return True
-        except Exception:
+        except Exception as e:
+            print(f"Error saving recommendations for room {room_id}: {e}")
             return False
 
     async def get_room_recommendations(self, room_id: str) -> Optional[dict]:
         """Get the latest recommendations for a room."""
-        recommendations_docs = self.recommendations_collection.where("room_id", "==", room_id).order_by("generated_at", direction="DESCENDING").limit(1).stream()
-        for doc in recommendations_docs:
-            return doc.to_dict()
-        return None 
+        try:
+            # First try to get the latest document
+            latest_doc = self.recommendations_collection.document(f"{room_id}_latest").get()
+            if latest_doc.exists:
+                return latest_doc.to_dict()
+            
+            # Fallback to query by room_id field
+            recommendations_docs = self.recommendations_collection.where("room_id", "==", room_id).order_by("generated_at", direction="DESCENDING").limit(1).stream()
+            for doc in recommendations_docs:
+                return doc.to_dict()
+            
+            print(f"No recommendations found for room {room_id}")
+            return None
+        except Exception as e:
+            print(f"Error getting recommendations for room {room_id}: {e}")
+            return None 

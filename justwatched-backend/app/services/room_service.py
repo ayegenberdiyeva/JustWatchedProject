@@ -258,8 +258,12 @@ class RoomService:
                 
                 result = self.ai_agent.chat(messages, temperature=0.6, max_tokens=6000)
                 
+                print(f"AI response type: {type(result)}")
+                print(f"AI response: {result}")
+                
                 # Validate and clean the response
                 if not isinstance(result, dict) or "recommendations" not in result:
+                    print(f"Invalid AI response format: {result}")
                     await self.room_crud.update_room(room_id, {"status": "active"})
                     return {"error": "Invalid AI response format"}
                 
@@ -274,10 +278,15 @@ class RoomService:
                             seen_ids.add(movie_id)
                             unique_recommendations.append(rec)
                 
+                print(f"Unique recommendations count: {len(unique_recommendations)}")
+                
                 result["recommendations"] = unique_recommendations
                 result["room_id"] = room_id
                 result["generated_at"] = result.get("generated_at", "")
                 result["generation_method"] = "ai_group_corrected_flow"
+                
+                print(f"Final result structure: {result.keys()}")
+                print(f"Final recommendations count: {len(result['recommendations'])}")
                 
                 # Save and deliver recommendations
                 success = await self.save_and_deliver_recommendations(room_id, result)
@@ -307,16 +316,23 @@ class RoomService:
     async def save_and_deliver_recommendations(self, room_id: str, recommendations: List[dict]) -> bool:
         """Save recommendations and deliver them to room participants via WebSocket."""
         try:
+            print(f"Saving recommendations for room {room_id}")
+            print(f"Recommendations type: {type(recommendations)}")
+            print(f"Recommendations keys: {recommendations.keys() if isinstance(recommendations, dict) else 'Not a dict'}")
+            
             # Save to database
             success = await self.room_crud.save_room_recommendations(room_id, recommendations)
             
             if success:
+                print(f"Successfully saved recommendations for room {room_id}")
                 # Send via WebSocket
                 await manager.send_group_recommendations(room_id, recommendations)
                 return True
-            
-            return False
-        except Exception:
+            else:
+                print(f"Failed to save recommendations for room {room_id}")
+                return False
+        except Exception as e:
+            print(f"Exception in save_and_deliver_recommendations for room {room_id}: {e}")
             return False
 
     async def get_room_recommendations(self, room_id: str) -> Optional[dict]:
