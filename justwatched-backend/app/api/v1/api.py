@@ -7,7 +7,7 @@ api_router = APIRouter()
 # api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 # api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
 
-from .endpoints import rooms, users, reviews, collections, friends, movies, auth, search_history, ai, watchlist
+from .endpoints import rooms, users, reviews, collections, friends, movies, auth, search_history, ai, watchlist, websocket
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])
@@ -18,3 +18,4 @@ api_router.include_router(movies.router, prefix="/movies", tags=["movies"])
 api_router.include_router(search_history.router, prefix="/search-history", tags=["search-history"])
 api_router.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 api_router.include_router(ai.router, prefix="", tags=["ai"])
+api_router.include_router(websocket.router, prefix="/websocket", tags=["websocket"])
