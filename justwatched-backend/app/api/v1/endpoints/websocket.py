@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.security import HTTPBearer
-from app.core.security import verify_jwt_token
+from app.core.security import get_current_user
 from app.websocket_manager import manager
 from app.services.room_service import RoomService
 import json
@@ -25,9 +25,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             await websocket.close(code=4001, reason="Authentication required")
             return
         
-        # Verify JWT token
+        # Verify JWT token using the existing function
         try:
-            user_data = verify_jwt_token(token)
+            # Create a mock credentials object for get_current_user
+            from fastapi.security import HTTPAuthorizationCredentials
+            mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            user_data = get_current_user(mock_credentials)
             user_id = user_data["sub"]
         except Exception as e:
             logger.error(f"Invalid token in WebSocket connection: {e}")
@@ -180,7 +183,7 @@ async def start_voting_session(room_id: str, user=Depends(security)):
     """API endpoint to start a voting session for a room."""
     try:
         # Verify user is room owner
-        user_data = verify_jwt_token(user.credentials)
+        user_data = get_current_user(user)
         user_id = user_data["sub"]
         
         room = await room_service.get_room_details(room_id)
