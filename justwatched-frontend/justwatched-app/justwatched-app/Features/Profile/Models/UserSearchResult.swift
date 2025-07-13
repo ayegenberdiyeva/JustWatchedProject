@@ -5,6 +5,6 @@ struct UserSearchResult: Codable, Identifiable {
     let display_name: String
     let color: String?
     let is_friend: Bool
-    let friend_status: String?
+    var friend_status: String?
     var id: String { user_id }
 } 

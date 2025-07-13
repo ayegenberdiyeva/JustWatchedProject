@@ -12,9 +12,23 @@ class ProfileFriendViewModel: ObservableObject {
     
     func checkStatus(with userId: String) async {
         isLoading = true; error = nil
+        pendingRequestId = nil
         do {
             let statusResp = try await friendsService.checkStatus(with: userId)
             friendStatus = statusResp.status
+            if statusResp.status == "pending_sent" {
+                // Fetch all pending requests and find the one for this user (sent)
+                let pending = try await friendsService.getPendingRequests()
+                if let req = pending.first(where: { $0.to_user_id == userId }) {
+                    pendingRequestId = req.request_id
+                }
+            } else if statusResp.status == "pending_received" {
+                // Fetch all pending requests and find the one for this user (received)
+                let pending = try await friendsService.getPendingRequests()
+                if let req = pending.first(where: { $0.from_user_id == userId }) {
+                    pendingRequestId = req.request_id
+                }
+            }
         } catch {
             self.error = error.localizedDescription
         }

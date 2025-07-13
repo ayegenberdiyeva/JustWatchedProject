@@ -7,17 +7,38 @@ struct UserSearchView: View {
     @State private var error: String? = nil
     @State private var selectedUserId: String? = nil
     @State private var navigateToProfile = false
-    @StateObject private var friendVM = ProfileFriendViewModel()
+    
+    private var preferredColor: Color {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
+    }
     
     var body: some View {
         VStack {
             HStack {
-                TextField("Search by display name", text: $searchText)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.horizontal)
-                    .onChange(of: searchText) { newValue in
-                        Task { await searchUsers() }
-                    }
+                TextField(
+                    "",
+                    text: $searchText,
+                    prompt: Text("Search by username").foregroundColor(preferredColor)
+                )
+                .padding()
+                .background(preferredColor.opacity(0.2))
+                .foregroundColor(.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(preferredColor, lineWidth: 1)
+                )
+                .padding(.horizontal)
+                .onChange(of: searchText) { newValue in
+                    Task { await searchUsers() }
+                }
                 if isLoading {
                     ProgressView().padding(.trailing)
                 }
@@ -28,13 +49,13 @@ struct UserSearchView: View {
             List(results) { user in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Circle().fill(Color(user.color ?? "gray")).frame(width: 32, height: 32)
                         Text(user.display_name)
-                            .font(.headline)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
                         Spacer()
-                        friendActionButton(for: user)
                     }
                 }
+                .listRowBackground(Color.black)
                 .contentShape(Rectangle())
                 .onTapGesture { 
                     selectedUserId = user.user_id
@@ -43,9 +64,12 @@ struct UserSearchView: View {
                 }
             }
             .listStyle(.plain)
-            .background(Color.clear)
+            .scrollContentBackground(.hidden)
+            .listRowSeparator(.hidden)
+            .background(Color.black)
         }
         .navigationTitle("Search Users")
+        .navigationBarTitleDisplayMode(.inline)
         .background(Color.black.ignoresSafeArea())
         .navigationDestination(isPresented: $navigateToProfile) {
             if let userId = selectedUserId {
@@ -54,35 +78,7 @@ struct UserSearchView: View {
         }
     }
     
-    private func friendActionButton(for user: UserSearchResult) -> some View {
-        switch user.friend_status ?? "not_friends" {
-        case "not_friends":
-            return AnyView(Button("Add Friend") {
-                Task { await friendVM.sendRequest(to: user.user_id) }
-            }.buttonStyle(.borderedProminent))
-        case "pending_sent":
-            return AnyView(Button("Request Sent") {}.disabled(true).buttonStyle(.bordered))
-        case "pending_received":
-            return AnyView(HStack(spacing: 4) {
-                Button("Accept") {
-                    if let reqId = friendVM.pendingRequestId {
-                        Task { await friendVM.respondToRequest(requestId: reqId, action: "accept") }
-                    }
-                }.buttonStyle(.borderedProminent)
-                Button("Decline") {
-                    if let reqId = friendVM.pendingRequestId {
-                        Task { await friendVM.respondToRequest(requestId: reqId, action: "decline") }
-                    }
-                }.buttonStyle(.bordered)
-            })
-        case "friends":
-            return AnyView(Button("Remove Friend") {
-                Task { await friendVM.removeFriend(userId: user.user_id) }
-            }.buttonStyle(.bordered))
-        default:
-            return AnyView(EmptyView())
-        }
-    }
+
     
     private func searchUsers() async {
         guard !searchText.isEmpty else { results = []; return }

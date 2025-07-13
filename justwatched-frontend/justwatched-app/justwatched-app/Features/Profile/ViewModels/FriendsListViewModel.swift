@@ -9,8 +9,20 @@ class FriendsListViewModel: ObservableObject {
     @Published var sentRequests: [FriendRequest] = []
     @Published var isLoading = false
     @Published var error: String? = nil
+    @Published var userDisplayNames: [String: String] = [:]
     
     private let friendsService = FriendsService.shared
+    
+    private func fetchDisplayName(for userId: String) async -> String {
+        if let cached = userDisplayNames[userId] { return cached }
+        do {
+            let profile = try await NetworkService.shared.getOtherUserProfile(userId: userId)
+            await MainActor.run { userDisplayNames[userId] = profile.displayName ?? userId }
+            return profile.displayName ?? userId
+        } catch {
+            return userId
+        }
+    }
     
     func loadFriends() async {
         isLoading = true; error = nil
@@ -30,6 +42,14 @@ class FriendsListViewModel: ObservableObject {
             // Separate requests by type
             incomingRequests = pendingRequests.filter { $0.status == "pending_received" }
             sentRequests = pendingRequests.filter { $0.status == "pending_sent" }
+            
+            // Fetch display names for all relevant user IDs
+            let userIds = Set(incomingRequests.map { $0.from_user_id } + sentRequests.map { $0.to_user_id })
+            await withTaskGroup(of: Void.self) { group in
+                for userId in userIds {
+                    group.addTask { _ = await self.fetchDisplayName(for: userId) }
+                }
+            }
             
             print("🔍 Loaded \(incomingRequests.count) incoming requests and \(sentRequests.count) sent requests")
         } catch {

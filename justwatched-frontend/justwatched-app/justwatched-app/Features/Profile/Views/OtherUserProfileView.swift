@@ -4,6 +4,8 @@ struct OtherUserProfileView: View {
     let userId: String
     @StateObject private var viewModel = OtherUserProfileViewModel()
     @StateObject private var friendVM = ProfileFriendViewModel()
+    @StateObject private var friendListVM = FriendsListViewModel()
+    
     
     var body: some View {
         NavigationStack {
@@ -19,13 +21,20 @@ struct OtherUserProfileView: View {
                             profileHeader(profile: profile)
                             friendActionButtons(userId: userId)
                             statsCard(profile: profile)
+                            if !(profile.isFriend ?? false) {
+                                Text("Add this user as a friend to see their reviews and to add them to rooms.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
                             // Optionally, add reviews, friends, etc.
                         }
                         .padding(.top)
                     }
                 }
             }
-            .navigationTitle(viewModel.userProfile?.displayName ?? "User Profile")
+            // .navigationTitle(viewModel.userProfile?.displayName ?? "User Profile")
             .task { await viewModel.fetchUserProfile(userId: userId) }
         }
     }
@@ -126,33 +135,100 @@ struct OtherUserProfileView: View {
                     Button("Add Friend") {
                         Task { await friendVM.sendRequest(to: userId) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    // .buttonStyle(.borderedProminent)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.white)
+                    .foregroundColor(.black)
+                    .cornerRadius(16)
                 case "pending_sent":
-                    Button("Friend Request Sent") {}
-                        .disabled(true)
-                        .buttonStyle(.bordered)
+                    HStack(spacing: 12) {
+                        Button("Request Sent") {}
+                            .disabled(true)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.white)
+                            .foregroundColor(.black)
+                            .cornerRadius(16)
+                            // .buttonStyle(.bordered)
+                        if friendListVM.isLoading {
+                            Button("Canceling...") {}
+                                .disabled(true)
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.themePrimaryGrey)
+                                .foregroundColor(.white.opacity(0.6))
+                                .cornerRadius(16)
+                        } else {
+                            Button("Cancel") {
+                                if let reqId = friendVM.pendingRequestId {
+                                    Task {
+                                        await friendListVM.cancelSentRequest(requestId: reqId)
+                                        friendVM.friendStatus = "not_friends"
+                                        friendVM.pendingRequestId = nil
+                                    }
+                                }
+                            }
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.themePrimaryGrey)
+                            .foregroundColor(.white)
+                            .cornerRadius(16)
+                        }
+                    }
                 case "pending_received":
-                    HStack {
+                    HStack(spacing: 12) {
                         Button("Accept") {
                             if let reqId = friendVM.pendingRequestId {
                                 Task { await friendVM.respondToRequest(requestId: reqId, action: "accept") }
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.white)
+                        .foregroundColor(.black)
+                        .cornerRadius(16)
                         Button("Decline") {
                             if let reqId = friendVM.pendingRequestId {
                                 Task { await friendVM.respondToRequest(requestId: reqId, action: "decline") }
                             }
                         }
-                        .buttonStyle(.bordered)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.themePrimaryGrey)
+                        .foregroundColor(.white)
+                        .cornerRadius(16)
                     }
                 case "friends":
-                    Button("Remove Friend") {
-                        Task { await friendVM.removeFriend(userId: userId) }
+                    if friendVM.isLoading {
+                        Button("Removing...") {}
+                            .disabled(true)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.themePrimaryGrey)
+                            .foregroundColor(.white.opacity(0.6))
+                            .cornerRadius(16)
+                    } else {
+                        Button("Remove Friend") {
+                            Task { await friendVM.removeFriend(userId: userId) }
+                        }
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.themePrimaryGrey)
+                        .foregroundColor(.white)
+                        .cornerRadius(16)
                     }
-                    .buttonStyle(.bordered)
                 default:
                     EmptyView()
+                    .frame(height: 44)
                 }
             }
         }

@@ -66,6 +66,20 @@ class CollectionCRUD:
         
         return await run_in_threadpool(fetch)
 
+    async def get_user_collections_visible_to_friends(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get collections for a user that are visible to friends."""
+        def fetch():
+            query = self.collections_col.where("user_id", "==", user_id).where("visibility", "==", CollectionVisibility.FRIENDS)
+            docs = query.stream()
+            collections = []
+            for doc in docs:
+                if doc.exists:
+                    collection_data = doc.to_dict()
+                    collections.append(self._convert_datetime_fields(collection_data))
+            return collections
+        
+        return await run_in_threadpool(fetch)
+
     async def get_collection_by_id(self, collection_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific collection by ID."""
         doc = await run_in_threadpool(lambda: self.collections_col.document(collection_id).get())
