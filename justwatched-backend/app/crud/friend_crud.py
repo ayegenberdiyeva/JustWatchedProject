@@ -55,27 +55,41 @@ class FriendCRUD:
     async def cancel_friend_request(self, request_id: str, user_id: str) -> bool:
         """Cancel/withdraw a friend request (only the sender can cancel)."""
         try:
-            # Get the sender document to verify the user is the sender
+            # Try new two-document structure first
             doc = await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").get())
-            if not doc.exists:
-                return False
             
-            request_data = doc.to_dict()
-            if request_data["from_user_id"] != user_id:
-                return False  # Only the sender can cancel
+            if doc.exists:
+                # New structure - update both documents
+                request_data = doc.to_dict()
+                if request_data["from_user_id"] != user_id:
+                    return False  # Only the sender can cancel
+                
+                now = datetime.utcnow()
+                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
+                    "status": FriendStatus.NOT_FRIENDS,
+                    "responded_at": now
+                }))
+                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
+                    "status": FriendStatus.NOT_FRIENDS,
+                    "responded_at": now
+                }))
+                return True
             
-            # Update both documents to cancelled status
-            now = datetime.utcnow()
-            await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
-                "status": FriendStatus.NOT_FRIENDS,
-                "responded_at": now
-            }))
-            await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
-                "status": FriendStatus.NOT_FRIENDS,
-                "responded_at": now
-            }))
+            # Try old single-document structure
+            doc = await run_in_threadpool(lambda: self.friend_requests_col.document(request_id).get())
+            if doc.exists:
+                request_data = doc.to_dict()
+                if request_data["from_user_id"] != user_id:
+                    return False  # Only the sender can cancel
+                
+                now = datetime.utcnow()
+                await run_in_threadpool(lambda: self.friend_requests_col.document(request_id).update({
+                    "status": FriendStatus.NOT_FRIENDS,
+                    "responded_at": now
+                }))
+                return True
             
-            return True
+            return False
         except Exception:
             return False
 
@@ -84,7 +98,7 @@ class FriendCRUD:
         def fetch():
             requests = []
             
-            # Get requests sent by user (documents ending with _sender)
+            # Get requests sent by user (documents ending with _sender) - new structure
             sent_requests = self.friend_requests_col.where("from_user_id", "==", user_id).where("status", "==", FriendStatus.PENDING_SENT).stream()
             for doc in sent_requests:
                 if doc.exists:
@@ -96,11 +110,38 @@ class FriendCRUD:
                         req["responded_at"] = req["responded_at"].isoformat()
                     requests.append(req)
             
-            # Get requests received by user (documents ending with _receiver)
+            # Get requests received by user (documents ending with _receiver) - new structure
             received_requests = self.friend_requests_col.where("to_user_id", "==", user_id).where("status", "==", FriendStatus.PENDING_RECEIVED).stream()
             for doc in received_requests:
                 if doc.exists:
                     req = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in req and hasattr(req["created_at"], "isoformat"):
+                        req["created_at"] = req["created_at"].isoformat()
+                    if "responded_at" in req and req["responded_at"] and hasattr(req["responded_at"], "isoformat"):
+                        req["responded_at"] = req["responded_at"].isoformat()
+                    requests.append(req)
+            
+            # Handle old single-document structure for backward compatibility
+            # Get requests where user is sender (old structure)
+            old_sent_requests = self.friend_requests_col.where("from_user_id", "==", user_id).where("status", "==", FriendStatus.PENDING_SENT).stream()
+            for doc in old_sent_requests:
+                if doc.exists and not doc.id.endswith("_sender") and not doc.id.endswith("_receiver"):
+                    req = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in req and hasattr(req["created_at"], "isoformat"):
+                        req["created_at"] = req["created_at"].isoformat()
+                    if "responded_at" in req and req["responded_at"] and hasattr(req["responded_at"], "isoformat"):
+                        req["responded_at"] = req["responded_at"].isoformat()
+                    requests.append(req)
+            
+            # Get requests where user is receiver (old structure)
+            old_received_requests = self.friend_requests_col.where("to_user_id", "==", user_id).where("status", "==", FriendStatus.PENDING_SENT).stream()
+            for doc in old_received_requests:
+                if doc.exists and not doc.id.endswith("_sender") and not doc.id.endswith("_receiver"):
+                    req = doc.to_dict()
+                    # For old structure, change status to "pending_received" for the receiver
+                    req["status"] = FriendStatus.PENDING_RECEIVED
                     # Convert datetime fields to ISO strings
                     if "created_at" in req and hasattr(req["created_at"], "isoformat"):
                         req["created_at"] = req["created_at"].isoformat()
@@ -115,45 +156,77 @@ class FriendCRUD:
     async def respond_to_friend_request(self, request_id: str, action: str) -> bool:
         """Accept or decline a friend request."""
         try:
-            # Get the receiver document
+            # Try new two-document structure first
             doc = await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").get())
-            if not doc.exists:
-                return False
             
-            request_data = doc.to_dict()
-            now = datetime.utcnow()
-            
-            if action == "accept":
-                # Update both sender and receiver documents
-                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
-                    "status": FriendStatus.FRIENDS,
-                    "responded_at": now
-                }))
-                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
-                    "status": FriendStatus.FRIENDS,
-                    "responded_at": now
-                }))
+            if doc.exists:
+                # New structure - update both documents
+                request_data = doc.to_dict()
+                now = datetime.utcnow()
                 
-                # Create friendship record
-                friendship = {
-                    "user1_id": request_data["from_user_id"],
-                    "user2_id": request_data["to_user_id"],
-                    "created_at": now
-                }
-                await run_in_threadpool(lambda: self.friends_col.add(friendship))
+                if action == "accept":
+                    # Update both sender and receiver documents
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
+                        "status": FriendStatus.FRIENDS,
+                        "responded_at": now
+                    }))
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
+                        "status": FriendStatus.FRIENDS,
+                        "responded_at": now
+                    }))
+                    
+                    # Create friendship record
+                    friendship = {
+                        "user1_id": request_data["from_user_id"],
+                        "user2_id": request_data["to_user_id"],
+                        "created_at": now
+                    }
+                    await run_in_threadpool(lambda: self.friends_col.add(friendship))
+                    
+                elif action == "decline":
+                    # Update both sender and receiver documents
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
+                        "status": FriendStatus.NOT_FRIENDS,
+                        "responded_at": now
+                    }))
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
+                        "status": FriendStatus.NOT_FRIENDS,
+                        "responded_at": now
+                    }))
                 
-            elif action == "decline":
-                # Update both sender and receiver documents
-                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_sender").update({
-                    "status": FriendStatus.NOT_FRIENDS,
-                    "responded_at": now
-                }))
-                await run_in_threadpool(lambda: self.friend_requests_col.document(f"{request_id}_receiver").update({
-                    "status": FriendStatus.NOT_FRIENDS,
-                    "responded_at": now
-                }))
+                return True
             
-            return True
+            # Try old single-document structure
+            doc = await run_in_threadpool(lambda: self.friend_requests_col.document(request_id).get())
+            if doc.exists:
+                request_data = doc.to_dict()
+                now = datetime.utcnow()
+                
+                if action == "accept":
+                    # Update the single document
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(request_id).update({
+                        "status": FriendStatus.FRIENDS,
+                        "responded_at": now
+                    }))
+                    
+                    # Create friendship record
+                    friendship = {
+                        "user1_id": request_data["from_user_id"],
+                        "user2_id": request_data["to_user_id"],
+                        "created_at": now
+                    }
+                    await run_in_threadpool(lambda: self.friends_col.add(friendship))
+                    
+                elif action == "decline":
+                    # Update the single document
+                    await run_in_threadpool(lambda: self.friend_requests_col.document(request_id).update({
+                        "status": FriendStatus.NOT_FRIENDS,
+                        "responded_at": now
+                    }))
+                
+                return True
+            
+            return False
         except Exception:
             return False
 
@@ -217,14 +290,22 @@ class FriendCRUD:
             if next(friendship1, None) is not None or next(friendship2, None) is not None:
                 return FriendStatus.FRIENDS
             
-            # Check pending requests - look for sender document first
+            # Check pending requests - new structure first
             sent_request = self.friend_requests_col.where("from_user_id", "==", from_user_id).where("to_user_id", "==", to_user_id).where("status", "==", FriendStatus.PENDING_SENT).limit(1).stream()
             if next(sent_request, None) is not None:
                 return FriendStatus.PENDING_SENT
             
-            # Check for received request
             received_request = self.friend_requests_col.where("from_user_id", "==", to_user_id).where("to_user_id", "==", from_user_id).where("status", "==", FriendStatus.PENDING_RECEIVED).limit(1).stream()
             if next(received_request, None) is not None:
+                return FriendStatus.PENDING_RECEIVED
+            
+            # Check old single-document structure for backward compatibility
+            old_request = self.friend_requests_col.where("from_user_id", "==", from_user_id).where("to_user_id", "==", to_user_id).where("status", "==", FriendStatus.PENDING_SENT).limit(1).stream()
+            if next(old_request, None) is not None:
+                return FriendStatus.PENDING_SENT
+            
+            old_received_request = self.friend_requests_col.where("from_user_id", "==", to_user_id).where("to_user_id", "==", from_user_id).where("status", "==", FriendStatus.PENDING_SENT).limit(1).stream()
+            if next(old_received_request, None) is not None:
                 return FriendStatus.PENDING_RECEIVED
             
             return FriendStatus.NOT_FRIENDS
