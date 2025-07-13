@@ -15,9 +15,11 @@ security = HTTPBearer()
 @router.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str):
     """WebSocket endpoint for room-based movie voting."""
+    logger.info(f"WebSocket connection attempt for room {room_id}")
     try:
         # Accept the WebSocket connection
         await websocket.accept()
+        logger.info(f"WebSocket connection accepted for room {room_id}")
         
         # Get authentication token from query parameters
         token = websocket.query_params.get("token")
@@ -25,17 +27,29 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             await websocket.close(code=4001, reason="Authentication required")
             return
         
-        # Verify JWT token using the existing function
+        # Verify JWT token directly
         try:
-            # Create a mock credentials object for get_current_user
-            from fastapi.security import HTTPAuthorizationCredentials
-            mock_credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-            user_data = get_current_user(mock_credentials)
-            user_id = user_data["sub"]
-        except Exception as e:
+            from jose import JWTError, jwt
+            from app.core.config import settings
+            
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                audience=settings.JWT_AUDIENCE,
+                issuer=settings.JWT_ISSUER
+            )
+            user_id = payload["sub"]
+        except JWTError as e:
             logger.error(f"Invalid token in WebSocket connection: {e}")
             await websocket.close(code=4001, reason="Invalid authentication")
             return
+        except Exception as e:
+            logger.error(f"Token verification error in WebSocket connection: {e}")
+            await websocket.close(code=4001, reason="Invalid authentication")
+            return
+        
+        logger.info(f"WebSocket authentication successful for user {user_id} in room {room_id}")
         
         # Verify user is a participant in the room
         room = await room_service.get_room_details(room_id)

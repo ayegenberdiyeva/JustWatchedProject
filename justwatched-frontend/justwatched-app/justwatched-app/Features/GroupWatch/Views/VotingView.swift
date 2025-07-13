@@ -5,6 +5,10 @@ struct VotingView: View {
     let roomId: String
     @Environment(\.dismiss) private var dismiss
     @State private var hasVoted = false
+    @State private var cardOffset: CGSize = .zero
+    @State private var cardRotation: Double = 0
+    @State private var showVoteFeedback = false
+    @State private var voteFeedback: (type: String, color: Color) = ("", .clear)
     
     var body: some View {
         NavigationView {
@@ -108,131 +112,232 @@ struct VotingView: View {
             }
             .padding(.horizontal)
             
-            // Movie card
-            ZStack(alignment: .bottom) {
-                if let posterPath = movie.posterPath {
-                    AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.gray.opacity(0.2)
-                    }
-                    .frame(width: 300, height: 450)
-                    .clipped()
-                    .cornerRadius(24)
-                } else {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: 300, height: 450)
-                }
+            // Swipeable movie card
+            ZStack {
+                // Background card (shadow effect)
+                movieCard(movie: movie)
+                    .scaleEffect(0.95)
+                    .opacity(0.5)
+                    .offset(x: cardOffset.width * 0.1, y: cardOffset.height * 0.1)
                 
-                // Glass effect overlay
-                VStack {
-                    Spacer()
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(.ultraThinMaterial)
-                        .frame(height: 200)
-                        .frame(width: 300)
-                }
-                .frame(width: 300, height: 450)
-                .allowsHitTesting(false)
-                
-                // Content overlay
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(movie.title)
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .shadow(radius: 2)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    
-                    if !movie.reasons.isEmpty {
-                        Text(movie.reasons.joined(separator: "\n"))
-                            .font(.footnote)
-                            .foregroundColor(.white)
-                            .shadow(radius: 1)
-                            .lineLimit(3)
-                            .multilineTextAlignment(.leading)
-                    }
-                    
-                    HStack {
-                        Text("Group Score: \(Int(movie.groupScore * 100))%")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.black.opacity(0.7))
-                            .foregroundColor(.white)
-                            .cornerRadius(16)
-                        Spacer()
-                    }
-                    
-                    // Voting buttons
-                    if !hasVoted {
-                        HStack(spacing: 16) {
-                            Button(action: {
-                                viewModel.sendVote(movieId: movie.movieId, vote: "like")
-                                hasVoted = true
-                            }) {
-                                VStack {
-                                    Image(systemName: "hand.thumbsup.fill")
-                                        .font(.title2)
-                                    Text("Like")
-                                        .font(.caption)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.green.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(16)
+                // Main card
+                movieCard(movie: movie)
+                    .offset(cardOffset)
+                    .rotationEffect(.degrees(cardRotation))
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                cardOffset = value.translation
+                                cardRotation = Double(value.translation.width / 20)
                             }
-                            
-                            Button(action: {
-                                viewModel.sendVote(movieId: movie.movieId, vote: "dislike")
-                                hasVoted = true
-                            }) {
-                                VStack {
-                                    Image(systemName: "hand.thumbsdown.fill")
-                                        .font(.title2)
-                                    Text("Dislike")
-                                        .font(.caption)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.red.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(16)
+                            .onEnded { value in
+                                handleSwipe(value: value, movie: movie)
                             }
-                        }
-                    } else {
-                        Text("Vote submitted!")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.black.opacity(0.7))
-                            .cornerRadius(16)
-                    }
-                }
-                .padding(20)
-                .frame(width: 300)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.black.opacity(0.8),
-                            Color.black.opacity(0.4),
-                            Color.clear
-                        ]),
-                        startPoint: .bottom,
-                        endPoint: .top
                     )
-                    .cornerRadius(24)
-                )
+                
+                // Vote feedback overlay
+                if showVoteFeedback {
+                    voteFeedbackOverlay
+                }
             }
-            .frame(width: 300, height: 450)
-            .background(Color.white.opacity(0.01))
-            .cornerRadius(24)
-            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+            
+            // Manual vote buttons (fallback)
+            if !hasVoted {
+                HStack(spacing: 20) {
+                    Button(action: {
+                        handleVote(movie: movie, vote: "dislike")
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 60)
+                            .background(Color.red)
+                            .clipShape(Circle())
+                    }
+                    
+                    Button(action: {
+                        handleVote(movie: movie, vote: "like")
+                    }) {
+                        Image(systemName: "heart.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 60)
+                            .background(Color.green)
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(.top, 20)
+            } else {
+                Text("Vote submitted!")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.top, 20)
+            }
+        }
+    }
+    
+    private func movieCard(movie: RoomRecommendation) -> some View {
+        ZStack(alignment: .bottom) {
+            if let posterPath = movie.posterPath {
+                AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(width: 320, height: 480)
+                .clipped()
+                .cornerRadius(24)
+            } else {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 320, height: 480)
+            }
+            
+            // Glass effect overlay
+            VStack {
+                Spacer()
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .frame(height: 200)
+                    .frame(width: 320)
+            }
+            .frame(width: 320, height: 480)
+            .allowsHitTesting(false)
+            
+            // Content overlay
+            VStack(alignment: .leading, spacing: 12) {
+                Text(movie.title)
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
+                    .shadow(radius: 2)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                if !movie.reasons.isEmpty {
+                    Text(movie.reasons.joined(separator: "\n"))
+                        .font(.footnote)
+                        .foregroundColor(.white)
+                        .shadow(radius: 1)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+                
+                HStack {
+                    Text("Group Score: \(Int(movie.groupScore * 100))%")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.black.opacity(0.7))
+                        .foregroundColor(.white)
+                        .cornerRadius(16)
+                    Spacer()
+                }
+            }
+            .padding(20)
+            .frame(width: 320)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.black.opacity(0.8),
+                        Color.black.opacity(0.4),
+                        Color.clear
+                    ]),
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+                .cornerRadius(24)
+            )
+        }
+        .frame(width: 320, height: 480)
+        .background(Color.white.opacity(0.01))
+        .cornerRadius(24)
+        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
+    }
+    
+    private var voteFeedbackOverlay: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24)
+                .fill(voteFeedback.color.opacity(0.3))
+                .frame(width: 320, height: 480)
+            
+            VStack {
+                if voteFeedback.type == "like" {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 80))
+                        .foregroundColor(.green)
+                } else {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 80, weight: .bold))
+                        .foregroundColor(.red)
+                }
+                
+                Text(voteFeedback.type.uppercased())
+                    .font(.title.bold())
+                    .foregroundColor(voteFeedback.color)
+            }
+        }
+        .frame(width: 320, height: 480)
+        .cornerRadius(24)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showVoteFeedback = false
+                }
+            }
+        }
+    }
+    
+    private func handleSwipe(value: DragGesture.Value, movie: RoomRecommendation) {
+        let threshold: CGFloat = 100
+        let swipeDistance = abs(value.translation.width)
+        
+        if swipeDistance > threshold {
+            let vote = value.translation.width > 0 ? "like" : "dislike"
+            handleVote(movie: movie, vote: vote)
+            
+            // Animate card off screen
+            withAnimation(.easeInOut(duration: 0.3)) {
+                cardOffset = CGSize(
+                    width: value.translation.width > 0 ? 500 : -500,
+                    height: value.translation.height
+                )
+                cardRotation = value.translation.width > 0 ? 20 : -20
+            }
+        } else {
+            // Reset card position
+            withAnimation(.spring()) {
+                cardOffset = .zero
+                cardRotation = 0
+            }
+        }
+    }
+    
+    private func handleVote(movie: RoomRecommendation, vote: String) {
+        guard !hasVoted else { return }
+        
+        // Send vote to backend
+        viewModel.sendVote(movieId: movie.movieId, vote: vote)
+        hasVoted = true
+        
+        // Show feedback
+        voteFeedback = (
+            type: vote,
+            color: vote == "like" ? .green : .red
+        )
+        
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showVoteFeedback = true
+        }
+        
+        // Reset card position for next movie
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.spring()) {
+                cardOffset = .zero
+                cardRotation = 0
+            }
+            hasVoted = false
         }
     }
     
