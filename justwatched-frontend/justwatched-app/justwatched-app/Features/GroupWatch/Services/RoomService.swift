@@ -123,7 +123,7 @@ actor RoomService {
             throw NetworkError.requestFailed(statusCode: 500)
         }
         
-        guard httpResponse.statusCode == 204 else {
+        guard httpResponse.statusCode == 204 || httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
         }
     }

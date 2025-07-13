@@ -55,4 +55,16 @@ class FriendsListViewModel: ObservableObject {
         }
         isLoading = false
     }
+    
+    func cancelSentRequest(requestId: String) async {
+        isLoading = true; error = nil
+        do {
+            try await friendsService.cancelFriendRequest(requestId: requestId)
+            sentRequests.removeAll { $0.request_id == requestId }
+            pendingRequests.removeAll { $0.request_id == requestId }
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
 } 

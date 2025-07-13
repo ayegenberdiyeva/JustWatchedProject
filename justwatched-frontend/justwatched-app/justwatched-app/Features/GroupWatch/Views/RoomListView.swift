@@ -3,7 +3,6 @@ import SwiftUI
 struct RoomListView: View {
     @StateObject private var viewModel = RoomListViewModel()
     @ObservedObject private var authManager = AuthManager.shared
-    @State private var selectedRoom: Room? = nil
     @State private var showCreateRoom = false
     
     var body: some View {
@@ -26,6 +25,22 @@ struct RoomListView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             headerSection
+                            // Show success message if present
+                            if let success = viewModel.successMessage {
+                                Text(success)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal)
+                                    .padding(.top, 4)
+                                    .transition(.opacity)
+                                    .onAppear {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                                            withAnimation {
+                                                viewModel.successMessage = nil
+                                            }
+                                        }
+                                    }
+                            }
                             
                             if viewModel.isLoading {
                                 ProgressView("Loading rooms...")
@@ -88,9 +103,7 @@ struct RoomListView: View {
                     }
                 }
             }
-            .sheet(item: $selectedRoom) { room in
-                RoomDetailView(roomId: room.roomId)
-            }
+
         }
     }
     
@@ -195,27 +208,30 @@ struct RoomListView: View {
             
             LazyVStack(spacing: 12) {
                 ForEach(viewModel.rooms) { room in
-                    RoomCard(
-                        room: room,
-                        isOwner: viewModel.isOwner(room),
-                        isParticipant: viewModel.isParticipant(room),
-                        onTap: { selectedRoom = room },
-                        onJoin: {
-                            if let jwt = authManager.jwt {
-                                Task { await viewModel.joinRoom(roomId: room.roomId, jwt: jwt) }
-                            }
-                        },
-                        onLeave: {
-                            if let jwt = authManager.jwt {
-                                Task { await viewModel.leaveRoom(roomId: room.roomId, jwt: jwt) }
-                            }
-                        },
-                        onDelete: {
-                            if let jwt = authManager.jwt {
-                                Task { await viewModel.deleteRoom(roomId: room.roomId, jwt: jwt) }
-                            }
-                        }
-                    )
+                    NavigationLink(destination: RoomDetailView(roomId: room.roomId)) {
+                        RoomCard(
+                            room: room,
+                            isOwner: viewModel.isOwner(room),
+                            isParticipant: viewModel.isParticipant(room),
+                            onJoin: {
+                                if let jwt = authManager.jwt {
+                                    Task { await viewModel.joinRoom(roomId: room.roomId, jwt: jwt) }
+                                }
+                            },
+                            onLeave: {
+                                if let jwt = authManager.jwt {
+                                    Task { await viewModel.leaveRoom(roomId: room.roomId, jwt: jwt) }
+                                }
+                            },
+                            onDelete: {
+                                if let jwt = authManager.jwt {
+                                    Task { await viewModel.deleteRoom(roomId: room.roomId, jwt: jwt) }
+                                }
+                            },
+                            viewModel: viewModel
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .padding(.horizontal, 16)
@@ -238,79 +254,82 @@ struct RoomCard: View {
     let room: Room
     let isOwner: Bool
     let isParticipant: Bool
-    let onTap: () -> Void
     let onJoin: () -> Void
     let onLeave: () -> Void
     let onDelete: () -> Void
+    @ObservedObject var viewModel: RoomListViewModel
     
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(room.name)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        
-                        if let description = room.description, !description.isEmpty {
-                            Text(description)
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                                .lineLimit(2)
-                        }
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(room.name)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
                     
-                    Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 4) {
-                        StatusBadge(status: room.status)
-                        Text("\(room.currentParticipants)/\(room.maxParticipants)")
-                            .font(.caption)
+                    if let description = room.description, !description.isEmpty {
+                        Text(description)
+                            .font(.subheadline)
                             .foregroundColor(.gray)
+                            .lineLimit(2)
                     }
                 }
                 
-                HStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.2")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                        Text("\(room.participants.count) participants")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Spacer()
-                    
-                    HStack(spacing: 8) {
-                        if isOwner {
-                            Button("Delete") {
-                                onDelete()
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    StatusBadge(status: room.status)
+                    Text("\(room.currentParticipants)/\(room.maxParticipants)")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Text("\(room.participants.count) participants")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    if isOwner {
+                        Button(action: onDelete) {
+                            if viewModel.deletingRoomId == room.roomId {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                    .padding(.trailing, 2)
                             }
-                            .font(.caption)
-                            .foregroundColor(.red)
-                        } else if isParticipant {
-                            Button("Leave") {
-                                onLeave()
-                            }
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                        } else {
-                            Button("Join") {
-                                onJoin()
-                            }
-                            .font(.caption)
-                            .foregroundColor(preferredColor)
+                            Text("Delete")
                         }
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .disabled(viewModel.deletingRoomId == room.roomId)
+                    } else if isParticipant {
+                        Button("Leave") {
+                            onLeave()
+                        }
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    } else {
+                        Button("Join") {
+                            onJoin()
+                        }
+                        .font(.caption)
+                        .foregroundColor(preferredColor)
                     }
                 }
             }
-            .padding()
-            .background(Color(hex: "393B3D").opacity(0.3))
-            .cornerRadius(16)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding()
+        .background(Color(hex: "393B3D").opacity(0.3))
+        .cornerRadius(16)
     }
     
     private var preferredColor: Color {

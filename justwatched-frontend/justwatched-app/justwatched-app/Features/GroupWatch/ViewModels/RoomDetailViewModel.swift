@@ -99,6 +99,8 @@ class RoomDetailViewModel: ObservableObject {
         do {
             try await roomService.startVoting(roomId: roomId, jwt: jwt)
             print("✅ Voting session started successfully")
+            // Open the voting UI for the owner as well
+            startVoting(roomId: roomId, jwt: jwt)
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Failed to start voting session"
         } catch let error {

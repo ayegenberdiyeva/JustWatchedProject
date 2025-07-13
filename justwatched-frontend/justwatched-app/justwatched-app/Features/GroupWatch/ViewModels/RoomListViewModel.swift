@@ -7,6 +7,8 @@ class RoomListViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     @Published var showCreateRoom = false
+    @Published var successMessage: String? = nil
+    @Published var deletingRoomId: String? = nil
     
     private let roomService = RoomService()
     
@@ -51,9 +53,13 @@ class RoomListViewModel: ObservableObject {
     }
     
     func deleteRoom(roomId: String, jwt: String) async {
+        deletingRoomId = roomId
+        defer { deletingRoomId = nil }
         do {
             try await roomService.deleteRoom(roomId: roomId, jwt: jwt)
-            rooms.removeAll { $0.roomId == roomId }
+            // After deletion, reload rooms and set success message
+            await fetchRooms(jwt: jwt)
+            self.successMessage = "Room deleted successfully."
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Network error occurred"
         } catch let error {

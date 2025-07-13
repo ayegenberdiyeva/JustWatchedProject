@@ -65,6 +65,19 @@ struct FriendRequestsView: View {
                                     .foregroundColor(Color(hex: "FFD600"))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 4)
+                                Button(action: {
+                                    Task { await viewModel.cancelSentRequest(requestId: req.request_id) }
+                                }) {
+                                    if viewModel.isLoading {
+                                        ProgressView().scaleEffect(0.7)
+                                    }
+                                    Text("Cancel")
+                                }
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundColor(.red)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .disabled(viewModel.isLoading)
                             }
                             .padding(.vertical, 6)
                         }

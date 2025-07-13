@@ -126,4 +126,14 @@ actor FriendsService {
         let (data, _) = try await session.data(for: req)
         return try JSONDecoder().decode(FriendsListResponse.self, from: data).friends
     }
+
+    // 8. Cancel sent friend request
+    func cancelFriendRequest(requestId: String) async throws {
+        guard let jwt else { throw URLError(.userAuthenticationRequired) }
+        let url = URL(string: "\(baseURL)/requests/\(requestId)")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        _ = try await session.data(for: req)
+    }
 } 

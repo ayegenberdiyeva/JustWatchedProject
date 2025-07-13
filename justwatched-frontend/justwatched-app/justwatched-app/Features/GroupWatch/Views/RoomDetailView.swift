@@ -5,6 +5,7 @@ struct RoomDetailView: View {
     @StateObject private var viewModel = RoomDetailViewModel()
     @ObservedObject private var authManager = AuthManager.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var navigateToVoting = false
     
     var body: some View {
         NavigationStack {
@@ -34,13 +35,6 @@ struct RoomDetailView: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Back") {
-                        dismiss()
-                    }
-                    .foregroundColor(.gray)
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         if let jwt = authManager.jwt {
@@ -60,9 +54,10 @@ struct RoomDetailView: View {
                     }
                 }
             }
-            .sheet(isPresented: $viewModel.showVoting) {
-                VotingView(viewModel: viewModel, roomId: roomId)
+            .onChange(of: viewModel.showVoting) { show in
+                if show { navigateToVoting = true }
             }
+            NavigationLink(destination: VotingView(viewModel: viewModel, roomId: roomId), isActive: $navigateToVoting) { EmptyView() }
         }
     }
     

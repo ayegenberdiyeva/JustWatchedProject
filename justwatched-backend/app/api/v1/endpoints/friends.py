@@ -135,6 +135,26 @@ async def respond_to_friend_request(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to respond to friend request: {str(e)}")
 
+@router.delete("/requests/{request_id}")
+async def cancel_friend_request(
+    request_id: str = Path(..., description="ID of the friend request to cancel"),
+    user=Depends(get_current_user)
+):
+    """Cancel/withdraw a friend request (only the sender can cancel)."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Cancel the request
+        success = await friend_crud.cancel_friend_request(request_id, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Friend request not found or you don't have permission to cancel it")
+        
+        return {"message": "Friend request cancelled successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to cancel friend request: {str(e)}")
+
 @router.get("/", response_model=FriendListResponse)
 async def get_friends_list(
     user=Depends(get_current_user)
