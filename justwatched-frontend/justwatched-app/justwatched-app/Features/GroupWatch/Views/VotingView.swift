@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VotingView: View {
     @ObservedObject var viewModel: RoomDetailViewModel
+    let roomId: String
     @Environment(\.dismiss) private var dismiss
     @State private var hasVoted = false
     
@@ -37,7 +38,9 @@ struct VotingView: View {
             .onAppear {
                 // Start voting session if owner
                 if viewModel.isOwner {
-                    viewModel.startVotingSession()
+                    if let jwt = AuthManager.shared.jwt {
+                        Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
+                    }
                 }
             }
             .onDisappear {
@@ -66,7 +69,9 @@ struct VotingView: View {
                     
                     if viewModel.isOwner {
                         Button("Start Voting") {
-                            viewModel.startVotingSession()
+                            if let jwt = AuthManager.shared.jwt {
+                                Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
+                            }
                         }
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
@@ -360,5 +365,5 @@ struct VotingView: View {
 }
 
 #Preview {
-    VotingView(viewModel: RoomDetailViewModel())
+    VotingView(viewModel: RoomDetailViewModel(), roomId: "test-room-id")
 } 

@@ -61,7 +61,7 @@ struct RoomDetailView: View {
                 }
             }
             .sheet(isPresented: $viewModel.showVoting) {
-                VotingView(viewModel: viewModel)
+                VotingView(viewModel: viewModel, roomId: roomId)
             }
         }
     }
@@ -145,7 +145,7 @@ struct RoomDetailView: View {
             if room.status == .active && !viewModel.recommendations.isEmpty {
                 Button("Start Voting") {
                     if let jwt = authManager.jwt {
-                        viewModel.startVoting(roomId: roomId, jwt: jwt)
+                        Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
                     }
                 }
                 .padding(.horizontal, 16)

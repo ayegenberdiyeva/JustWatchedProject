@@ -89,8 +89,21 @@ class RoomDetailViewModel: ObservableObject {
         webSocketManager.sendVote(movieId: movieId, vote: vote)
     }
     
-    func startVotingSession() {
-        webSocketManager.startVoting()
+    func startVotingSession(roomId: String, jwt: String) async {
+        // Check if user is the room owner
+        guard isOwner else {
+            self.error = "Only room owners can start voting sessions"
+            return
+        }
+        
+        do {
+            try await roomService.startVoting(roomId: roomId, jwt: jwt)
+            print("✅ Voting session started successfully")
+        } catch let networkError as NetworkError {
+            self.error = networkError.localizedDescription ?? "Failed to start voting session"
+        } catch let error {
+            self.error = "Failed to start voting session: \(error.localizedDescription)"
+        }
     }
     
     // MARK: - WebSocket Observers

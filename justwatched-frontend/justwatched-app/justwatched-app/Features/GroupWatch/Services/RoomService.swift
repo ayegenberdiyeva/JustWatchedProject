@@ -218,6 +218,26 @@ actor RoomService {
         
         return try JSONDecoder().decode(RoomRecommendationsResponse.self, from: data)
     }
+    
+    func startVoting(roomId: String, jwt: String) async throws {
+        guard let url = URL(string: "\(baseURL)/rooms/\(roomId)/start-voting") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        
+        let (_, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+    }
 }
 
 // MARK: - WebSocket Manager
@@ -236,13 +256,38 @@ class RoomWebSocketManager: ObservableObject {
     private var pingTimer: Timer?
     
     func connect(roomId: String, jwt: String) {
-        guard let url = URL(string: "wss://itsjustwatched.com/api/v1/websocket/ws/\(roomId)?token=\(jwt)") else {
+        // URL encode the JWT token to handle special characters
+        guard let encodedToken = jwt.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            error = "Failed to encode JWT token"
+            return
+        }
+        
+        // Use the correct WebSocket URL format as per backend documentation
+        let wsURL = "ws://itsjustwatched.com/api/v1/websocket/ws/\(roomId)?token=\(encodedToken)"
+        
+        guard let url = URL(string: wsURL) else {
             error = "Invalid WebSocket URL"
             return
         }
         
-        webSocket = session.webSocketTask(with: url)
+        print("🔍 Connecting to WebSocket: \(wsURL)")
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        
+        webSocket = session.webSocketTask(with: request)
         webSocket?.resume()
+        
+        // Set a timeout to check if connection is successful
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            if self?.isConnected == false {
+                print("❌ WebSocket connection timeout")
+                self?.error = "WebSocket connection timeout"
+                self?.webSocket?.cancel()
+                self?.webSocket = nil
+            }
+        }
+        
         isConnected = true
         
         // Start listening for messages
@@ -265,9 +310,10 @@ class RoomWebSocketManager: ObservableObject {
         sendMessage(message)
     }
     
+    // Note: startVoting is now handled via HTTP POST /api/v1/rooms/{roomId}/start-voting
+    // This method is kept for backward compatibility but should not be used
     func startVoting() {
-        let message = WebSocketStartVotingMessage()
-        sendMessage(message)
+        print("⚠️ Warning: startVoting should be called via HTTP, not WebSocket")
     }
     
     func getRoomStatus() {
@@ -306,6 +352,15 @@ class RoomWebSocketManager: ObservableObject {
                     // Continue listening
                     self?.receiveMessage()
                 case .failure(let error):
+                    print("❌ WebSocket receive error: \(error)")
+                    print("❌ Error details: \(error.localizedDescription)")
+                    if let nsError = error as NSError? {
+                        print("❌ Error code: \(nsError.code)")
+                        print("❌ Error domain: \(nsError.domain)")
+                        if let failingURL = nsError.userInfo["NSErrorFailingURLStringKey"] as? String {
+                            print("❌ Failing URL: \(failingURL)")
+                        }
+                    }
                     self?.error = "WebSocket error: \(error.localizedDescription)"
                     self?.isConnected = false
                 }
