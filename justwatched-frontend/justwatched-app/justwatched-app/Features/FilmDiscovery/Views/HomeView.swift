@@ -171,7 +171,7 @@ struct HomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 24) {
                     ForEach(viewModel.recommendations) { recommendation in
-                        RecommendationCard(
+                        PersonalRecommendationCard(
                             recommendation: recommendation,
                             onAddReview: {
                                 selectedRecommendation = recommendation
@@ -201,7 +201,7 @@ struct HomeView: View {
     }
 }
 
-struct RecommendationCard: View {
+struct PersonalRecommendationCard: View {
     let recommendation: RecommendationResult
     let onAddReview: () -> Void
     

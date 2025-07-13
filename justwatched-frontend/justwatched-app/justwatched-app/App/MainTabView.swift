@@ -34,9 +34,9 @@ struct MainTabView: View {
                     Label("Add Review", systemImage: "plus")
                 }
             
-            LobbyView()
+            RoomListView()
                 .tabItem {
-                    Label("Room", systemImage: "person.3.fill")
+                    Label("Group Watch", systemImage: "person.3.fill")
                 }
             
             ProfileView()

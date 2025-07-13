@@ -18,4 +18,4 @@ api_router.include_router(movies.router, prefix="/movies", tags=["movies"])
 api_router.include_router(search_history.router, prefix="/search-history", tags=["search-history"])
 api_router.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 api_router.include_router(ai.router, prefix="", tags=["ai"])
-api_router.include_router(websocket.router, prefix="/websocket", tags=["websocket"])
+# WebSocket routes need to be mounted directly on the main app, not through the API router

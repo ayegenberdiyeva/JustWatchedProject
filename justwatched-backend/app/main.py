@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api.v1.api import api_router
+from app.api.v1.endpoints import websocket
 from app.core.config import settings
 import os
 
@@ -27,6 +28,9 @@ if os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     app.add_middleware(FastAPIMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Mount WebSocket routes directly on the main app
+app.include_router(websocket.router, prefix="/api/v1/websocket", tags=["websocket"])
 
 @app.get("/healthcheck")
 async def healthcheck():
