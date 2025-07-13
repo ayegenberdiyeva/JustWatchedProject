@@ -222,17 +222,15 @@ async def get_room_recommendations(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
 
 @router.post("/{room_id}/start-voting")
-async def start_voting_session(
-    room_id: str = Path(..., description="ID of the room"),
-    user=Depends(get_current_user)
-):
-    """Start a voting session for a room (only room owner can do this)."""
-    user_id = user["sub"] if isinstance(user, dict) else user.sub
+async def start_voting_session(room_id: str, user=Depends(get_current_user)):
+    """API endpoint to start a voting session for a room."""
     try:
         # Verify user is room owner
+        user_id = user["sub"] if isinstance(user, dict) else user.sub
+        
         room = await room_service.get_room_details(room_id)
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
@@ -243,25 +241,23 @@ async def start_voting_session(
         # Get recommendations
         recommendations_data = await room_service.get_room_recommendations(room_id)
         if not recommendations_data:
-            raise HTTPException(status_code=404, detail="No recommendations available. Generate recommendations first.")
+            raise HTTPException(status_code=404, detail="No recommendations available")
         
         recommendations = recommendations_data.get("recommendations", [])
         if not recommendations:
             raise HTTPException(status_code=404, detail="No recommendations available")
         
-        # Start voting session via WebSocket manager
+        # Start voting session via WebSocket
         from app.websocket_manager import manager
         await manager.start_voting_session(room_id, recommendations)
         
         return {
             "status": "success",
             "message": "Voting session started",
-            "movie_count": len(recommendations),
-            "room_id": room_id
+            "movie_count": len(recommendations)
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start voting session: {str(e)}")
-
+        raise HTTPException(status_code=500, detail="Failed to start voting session")
