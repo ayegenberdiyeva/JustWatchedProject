@@ -176,43 +176,4 @@ async def handle_websocket_message(user_id: str, room_id: str, message: dict):
         await manager.send_personal_message(user_id, {
             "type": "error",
             "message": "Internal server error"
-        })
-
-@router.post("/{room_id}/start-voting")
-async def start_voting_session(room_id: str, user=Depends(security)):
-    """API endpoint to start a voting session for a room."""
-    try:
-        # Verify user is room owner
-        user_data = get_current_user(user)
-        user_id = user_data["sub"]
-        
-        room = await room_service.get_room_details(room_id)
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        
-        if room["owner_id"] != user_id:
-            raise HTTPException(status_code=403, detail="Only room owner can start voting")
-        
-        # Get recommendations
-        recommendations_data = await room_service.get_room_recommendations(room_id)
-        if not recommendations_data:
-            raise HTTPException(status_code=404, detail="No recommendations available")
-        
-        recommendations = recommendations_data.get("recommendations", [])
-        if not recommendations:
-            raise HTTPException(status_code=404, detail="No recommendations available")
-        
-        # Start voting session via WebSocket
-        await manager.start_voting_session(room_id, recommendations)
-        
-        return {
-            "status": "success",
-            "message": "Voting session started",
-            "movie_count": len(recommendations)
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error starting voting session: {e}")
-        raise HTTPException(status_code=500, detail="Failed to start voting session") 
+        }) 
