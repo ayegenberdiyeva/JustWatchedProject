@@ -247,9 +247,24 @@ async def start_voting_session(room_id: str, user=Depends(get_current_user)):
         if not recommendations:
             raise HTTPException(status_code=404, detail="No recommendations available")
         
+        # Transform recommendations to match WebSocket manager expectations
+        transformed_recommendations = []
+        for rec in recommendations:
+            if isinstance(rec, dict):
+                # Convert tmdb_id to movie_id for WebSocket compatibility
+                transformed_rec = {
+                    "movie_id": str(rec.get("tmdb_id", rec.get("movie_id", ""))),
+                    "title": rec.get("title", "Unknown"),
+                    "poster_path": rec.get("poster_path"),
+                    "group_score": rec.get("group_score", 0.8),
+                    "reasons": rec.get("reasons", ["Recommended by AI"]),
+                    "participants_who_liked": rec.get("participants_who_liked", [])
+                }
+                transformed_recommendations.append(transformed_rec)
+        
         # Start voting session via WebSocket
         from app.websocket_manager import manager
-        await manager.start_voting_session(room_id, recommendations)
+        await manager.start_voting_session(room_id, transformed_recommendations)
         
         return {
             "status": "success",
