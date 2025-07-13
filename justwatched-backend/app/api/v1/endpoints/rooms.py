@@ -238,12 +238,12 @@ async def start_voting_session(room_id: str, user=Depends(get_current_user)):
         if room["owner_id"] != user_id:
             raise HTTPException(status_code=403, detail="Only room owner can start voting")
         
-        # Get recommendations (this already returns transformed data with movie_id)
-        recommendations_response = await room_service.get_room_recommendations(room_id)
-        if not recommendations_response:
+        # Get recommendations
+        recommendations_data = await room_service.get_room_recommendations(room_id)
+        if not recommendations_data:
             raise HTTPException(status_code=404, detail="No recommendations available")
         
-        recommendations = recommendations_response.get("recommendations", [])
+        recommendations = recommendations_data.get("recommendations", [])
         if not recommendations:
             raise HTTPException(status_code=404, detail="No recommendations available")
         
@@ -261,4 +261,3 @@ async def start_voting_session(room_id: str, user=Depends(get_current_user)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to start voting session")
-
