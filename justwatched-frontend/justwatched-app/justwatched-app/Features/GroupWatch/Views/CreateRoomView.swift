@@ -172,7 +172,8 @@ struct CreateRoomView: View {
             if isLoading {
                 HStack {
                     ProgressView()
-                        .tint(preferredColor)
+                        .tint(.white)
+                        .scaleEffect(1.5)
                     Text("Creating room...")
                         .foregroundColor(.white)
                 }

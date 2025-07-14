@@ -439,7 +439,9 @@ struct AddReviewView: View {
                     .opacity((viewModel.rating == 0 || viewModel.isLoading) ? 0.5 : 1.0)
                     .overlay {
                         if viewModel.isLoading {
-                            ProgressView().scaleEffect(0.8)
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(1.5)
                         }
                     }
                 }

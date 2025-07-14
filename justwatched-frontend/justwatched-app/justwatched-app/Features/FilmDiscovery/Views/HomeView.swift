@@ -28,9 +28,9 @@ struct HomeView: View {
                             headerSection
                                 .frame(height: 150)
                             if viewModel.isLoading {
-                                ProgressView("Loading recommendations...")
-                                    .tint(.white)
-                                    .foregroundColor(.white)
+                                                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding(.top, 40)
                             } else if let error = viewModel.error {
@@ -156,7 +156,7 @@ struct HomeView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
-        .background(Color(hex: "393B3D").opacity(0.3))
+        // .background(Color(hex: "393B3D").opacity(0.3))
         .cornerRadius(24)
         .padding(.horizontal)
     }
@@ -204,6 +204,7 @@ struct HomeView: View {
 struct PersonalRecommendationCard: View {
     let recommendation: RecommendationResult
     let onAddReview: () -> Void
+    @State private var showAddReview = false
     
     private let preferredColor: Color = {
         switch AuthManager.shared.userProfile?.color {
@@ -280,7 +281,7 @@ struct PersonalRecommendationCard: View {
                 
                 // Action Buttons
                 HStack(spacing: 6) {
-                    Button(action: onAddReview) {
+                    Button(action: { showAddReview = true }) {
                         VStack {
                             Text("Review")
                                 .font(.caption)
@@ -325,6 +326,43 @@ struct PersonalRecommendationCard: View {
         .cornerRadius(24)
         .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
         .padding(.vertical, 8)
+        .sheet(isPresented: $showAddReview) {
+            AddReviewView(
+                selectedMovie: recommendation.mediaType == "movie" ? createMovieFromRecommendation() : nil,
+                selectedTVShow: recommendation.mediaType == "tv" ? createTVShowFromRecommendation() : nil,
+                onReviewAdded: onAddReview
+            )
+        }
+    }
+    
+    private func createMovieFromRecommendation() -> Movie {
+        let movieId = Int(recommendation.movieId) ?? 0
+        let movieTitle = recommendation.title
+        let moviePosterPath = recommendation.posterPath
+        let movieOverview = recommendation.reasoning ?? ""
+        
+        return Movie(
+            id: movieId,
+            title: movieTitle,
+            posterPath: moviePosterPath,
+            releaseDate: nil,
+            overview: movieOverview
+        )
+    }
+    
+    private func createTVShowFromRecommendation() -> TVShow {
+        let showId = Int(recommendation.movieId) ?? 0
+        let showName = recommendation.title
+        let showPosterPath = recommendation.posterPath
+        let showOverview = recommendation.reasoning ?? ""
+        
+        return TVShow(
+            id: showId,
+            name: showName,
+            posterPath: showPosterPath,
+            firstAirDate: nil,
+            overview: showOverview
+        )
     }
 }
 

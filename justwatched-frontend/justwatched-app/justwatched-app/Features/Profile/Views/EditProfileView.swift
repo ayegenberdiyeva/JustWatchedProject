@@ -64,6 +64,7 @@ struct EditProfileView: View {
                             if viewModel.isLoading {
                                 ProgressView()
                                     .tint(.white)
+                                    .scaleEffect(1.5)
                             } else {
                                 Text("Save")
                                     .font(.footnote.bold())

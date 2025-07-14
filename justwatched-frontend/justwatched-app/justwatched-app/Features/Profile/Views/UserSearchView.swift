@@ -40,7 +40,10 @@ struct UserSearchView: View {
                     Task { await searchUsers() }
                 }
                 if isLoading {
-                    ProgressView().padding(.trailing)
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                        .padding(.trailing)
                 }
             }
             if let error = error {

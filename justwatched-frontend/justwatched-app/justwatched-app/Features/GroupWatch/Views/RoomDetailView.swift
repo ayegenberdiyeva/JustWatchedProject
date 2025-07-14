@@ -13,9 +13,9 @@ struct RoomDetailView: View {
                 Color.black.ignoresSafeArea()
                 
                 if viewModel.isLoading {
-                    ProgressView("Loading room...")
-                        .tint(.white)
-                        .foregroundColor(.white)
+                                    ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let error = viewModel.error {
                     errorSection(error: error)
@@ -211,8 +211,8 @@ struct RoomDetailView: View {
                 if viewModel.isProcessingRecommendations {
                     HStack(spacing: 8) {
                         ProgressView()
-                            .scaleEffect(0.8)
-                            .tint(preferredColor)
+                            .tint(.white)
+                            .scaleEffect(1.5)
                         Text("Processing...")
                             .font(.caption)
                             .foregroundColor(.gray)

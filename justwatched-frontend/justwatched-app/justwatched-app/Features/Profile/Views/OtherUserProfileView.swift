@@ -12,7 +12,9 @@ struct OtherUserProfileView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if viewModel.isLoading {
-                    ProgressView().scaleEffect(1.5)
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
                 } else if let error = viewModel.error {
                     Text(error).foregroundColor(.red).padding()
                 } else if let profile = viewModel.userProfile {
@@ -125,6 +127,8 @@ struct OtherUserProfileView: View {
             }
             if friendVM.isLoading {
                 ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
             } else {
                 // Use the isFriend status from the profile response if available
                 let isFriendFromProfile = viewModel.userProfile?.isFriend ?? false

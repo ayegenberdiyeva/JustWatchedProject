@@ -71,6 +71,8 @@ struct SearchResultsView: View {
                         List {
                             if viewModel.isLoading {
                                 ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                             } else if !viewModel.results.isEmpty {
                                 ForEach(viewModel.results) { result in

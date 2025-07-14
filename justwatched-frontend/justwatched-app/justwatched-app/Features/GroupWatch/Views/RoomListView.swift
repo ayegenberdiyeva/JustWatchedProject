@@ -43,9 +43,9 @@ struct RoomListView: View {
                             }
                             
                             if viewModel.isLoading {
-                                ProgressView("Loading rooms...")
-                                    .tint(.white)
-                                    .foregroundColor(.white)
+                                                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding(.top, 40)
                             } else if let error = viewModel.error {
@@ -303,7 +303,8 @@ struct RoomCard: View {
                         Button(action: onDelete) {
                             if viewModel.deletingRoomId == room.roomId {
                                 ProgressView()
-                                    .scaleEffect(0.7)
+                                    .tint(.white)
+                                    .scaleEffect(1.5)
                                     .padding(.trailing, 2)
                             }
                             Text("Delete")

@@ -188,11 +188,20 @@ struct ProfileView: View {
     // --- GALLERY OF REVIEWS ---
     private var reviewsGallery: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !viewModel.reviews.isEmpty {
-                Text("Your Review Gallery")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.leading, 16)
+            Text("Your Review Gallery")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.leading, 16)
+            
+            if viewModel.isLoading {
+                HStack {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else if !viewModel.reviews.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 24) {
                         ForEach(viewModel.reviews, id: \.self) { review in
@@ -206,6 +215,11 @@ struct ProfileView: View {
                     .padding(.horizontal, 16)
                 }
                 .scrollTargetBehavior(.viewAligned)
+            } else {
+                Text("No reviews yet.")
+                    .foregroundColor(Color(hex: "393B3D"))
+                    .padding(.top, 8)
+                    .padding(.leading, 16)
             }
         }
     }
@@ -221,6 +235,7 @@ struct ProfileView: View {
                 HStack {
                     ProgressView()
                         .tint(.white)
+                        .scaleEffect(1.5)
                     Text("Loading reviews...")
                         .foregroundColor(Color(hex: "393B3D"))
                 }
@@ -281,6 +296,8 @@ struct ProfileView: View {
             }
             if friendVM.isLoading {
                 ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
             } else {
                 switch friendVM.friendStatus {
                 case "not_friends":
@@ -432,6 +449,7 @@ struct GalleryReviewCard: View {
     let review: Review
     var onOpen: () -> Void
     @State private var showFullReview = false
+    @State private var showAddReview = false
     private let reviewTruncationLimit = 50
 
     var body: some View {
@@ -518,7 +536,7 @@ struct GalleryReviewCard: View {
                     .background(Color.black.opacity(0.3))
                     .cornerRadius(12)
                 }
-                Button(action: onOpen) {
+                Button(action: { showAddReview = true }) {
                     Text("Open")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -540,20 +558,81 @@ struct GalleryReviewCard: View {
         .cornerRadius(24)
         .padding(.vertical, 8)
         .sheet(isPresented: $showFullReview) {
-            VStack(spacing: 24) {
-                Text("Full Review")
-                    .font(.title2.bold())
-                ScrollView {
-                    Text(review.content ?? "")
-                        .font(.body)
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 24) {
+                    Text("Full Review")
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                        .padding(.top)
+                    
+                    HStack {
+                        Text(review.title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(review.rating)/5")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal)
+                    
+                    ScrollView {
+                        Text(review.content ?? "")
+                            .font(.body)
+                            .foregroundColor(.white)
+                            .padding()
+                    }
+                    
+                    Button("Close") { showFullReview = false }
+                        .font(.headline)
+                        .foregroundColor(.white)
                         .padding()
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(12)
                 }
-                Button("Close") { showFullReview = false }
-                    .font(.headline)
-                    .padding()
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showAddReview) {
+            AddReviewView(
+                selectedMovie: review.mediaType == "movie" ? createMovieFromReview() : nil,
+                selectedTVShow: review.mediaType == "tv" ? createTVShowFromReview() : nil,
+                onReviewAdded: onOpen
+            )
+        }
+    }
+    
+    private func createMovieFromReview() -> Movie {
+        let movieId = Int(review.id ?? "0") ?? 0
+        let movieTitle = review.title
+        let moviePosterPath = review.posterPath
+        let movieReleaseDate = review.watchedDate?.formatted(date: .abbreviated, time: .omitted)
+        let movieOverview = review.content
+        
+        return Movie(
+            id: movieId,
+            title: movieTitle,
+            posterPath: moviePosterPath,
+            releaseDate: movieReleaseDate,
+            overview: movieOverview
+        )
+    }
+    
+    private func createTVShowFromReview() -> TVShow {
+        let showId = Int(review.id ?? "0") ?? 0
+        let showName = review.title
+        let showPosterPath = review.posterPath
+        let showFirstAirDate = review.watchedDate?.formatted(date: .abbreviated, time: .omitted)
+        let showOverview = review.content
+        
+        return TVShow(
+            id: showId,
+            name: showName,
+            posterPath: showPosterPath,
+            firstAirDate: showFirstAirDate,
+            overview: showOverview
+        )
     }
 }
 

@@ -569,6 +569,22 @@ class NetworkService {
         let searchResponse = try JSONDecoder().decode(UserSearchResponse.self, from: data)
         return searchResponse.users
     }
+    
+    func fetchFriendsReviews() async throws -> FriendsReviewsResponse {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/friends/reviews")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(FriendsReviewsResponse.self, from: data)
+    }
 
     func createUserProfileWithId(userId: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
         let url = URL(string: baseURL + "/users/\(userId)")!

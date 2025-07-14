@@ -10,9 +10,9 @@ struct FriendRequestsView: View {
             Color.black.ignoresSafeArea()
             if viewModel.isLoading {
                 Color.black.opacity(0.4).ignoresSafeArea()
-                ProgressView("Loading...")
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
+                            ProgressView()
+                .tint(.white)
+                .scaleEffect(1.5)
             } else {
                 VStack(alignment: .leading, spacing: 32) {
                     // Incoming Requests Section
@@ -88,7 +88,9 @@ struct FriendRequestsView: View {
                                         Task { await viewModel.cancelSentRequest(requestId: req.request_id) }
                                     }) {
                                         if viewModel.isLoading {
-                                            ProgressView().scaleEffect(0.7)
+                                            ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.5)
                                         }
                                         Text("Cancel")
                                             .font(.system(size: 16, weight: .semibold, design: .rounded))

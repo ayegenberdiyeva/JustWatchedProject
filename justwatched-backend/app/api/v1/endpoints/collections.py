@@ -25,6 +25,31 @@ class CollectionListResponse(BaseModel):
     collections: List[CollectionResponse]
     total_count: int
 
+class UserCollectionReview(BaseModel):
+    review_id: str
+    media_id: str
+    media_title: str
+    media_type: str
+    poster_path: Optional[str] = None
+    rating: Optional[int] = None
+    review_text: Optional[str] = None
+    status: str
+    created_at: str
+    updated_at: str
+
+class UserCollectionWithReviews(BaseModel):
+    collection_id: str
+    name: str
+    description: Optional[str] = None
+    visibility: str
+    review_count: int
+    reviews: List[UserCollectionReview]
+
+class UserCollectionsReviewsResponse(BaseModel):
+    collections: List[UserCollectionWithReviews]
+    total_collections: int
+    total_reviews: int
+
 @router.post("/", response_model=CollectionResponse)
 async def create_collection(
     collection_data: CollectionCreate,
@@ -250,4 +275,56 @@ async def get_collection_reviews(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get collection reviews: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to get collection reviews: {str(e)}")
+
+@router.get("/me/reviews", response_model=UserCollectionsReviewsResponse)
+async def get_my_reviews_by_collections(
+    include_private: bool = True,
+    user=Depends(get_current_user)
+):
+    """Get the authenticated user's reviews organized by their collections."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Get user's collections
+        collections = await collection_crud.get_user_collections(user_id, include_private=include_private)
+        
+        collections_with_reviews = []
+        total_reviews = 0
+        
+        for collection in collections:
+            # Get review IDs in this collection
+            review_ids = await collection_crud.get_collection_reviews(collection["collection_id"])
+            
+            # Get full review details
+            reviews = []
+            for review_id in review_ids:
+                review = await review_crud.get_review(review_id)
+                if review:
+                    # Convert datetime fields
+                    if "created_at" in review and hasattr(review["created_at"], "isoformat"):
+                        review["created_at"] = review["created_at"].isoformat()
+                    if "updated_at" in review and hasattr(review["updated_at"], "isoformat"):
+                        review["updated_at"] = review["updated_at"].isoformat()
+                    
+                    reviews.append(UserCollectionReview(**review))
+            
+            collections_with_reviews.append(UserCollectionWithReviews(
+                collection_id=collection["collection_id"],
+                name=collection["name"],
+                description=collection.get("description"),
+                visibility=collection["visibility"],
+                review_count=len(reviews),
+                reviews=reviews
+            ))
+            
+            total_reviews += len(reviews)
+        
+        return UserCollectionsReviewsResponse(
+            collections=collections_with_reviews,
+            total_collections=len(collections_with_reviews),
+            total_reviews=total_reviews
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user's reviews by collections: {str(e)}") 
