@@ -42,4 +42,16 @@ class MoodboardCRUD:
             return None
         except Exception as e:
             print(f"Error getting moodboard for movie {movie_id}: {e}")
-            return None 
+            return None
+
+    async def get_user_moodboards(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all moodboards created by a user."""
+        return await self.get_moodboards_by_user(user_id)
+
+    async def delete_moodboard(self, moodboard_id: str) -> bool:
+        """Delete a moodboard by its ID."""
+        try:
+            await run_in_threadpool(lambda: self.moodboards_col.document(moodboard_id).delete())
+            return True
+        except Exception:
+            return False 

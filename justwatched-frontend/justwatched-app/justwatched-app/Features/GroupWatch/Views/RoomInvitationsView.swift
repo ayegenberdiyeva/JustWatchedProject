@@ -5,7 +5,6 @@ struct RoomInvitationsView: View {
     @State private var invitations: [RoomInvitation] = []
     @State private var isLoading = false
     @State private var error: String? = nil
-    @State private var navigateToRoomList = false
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -56,7 +55,7 @@ struct RoomInvitationsView: View {
                             .foregroundColor(.white)
                         Spacer()
                     }
-                    .padding(.horizontal)
+                    .padding()
                     
                     // Invitations List
                     if invitations.isEmpty {
@@ -76,7 +75,7 @@ struct RoomInvitationsView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 12) {
-                                ForEach(invitations) { invitation in
+                                ForEach(invitations.filter { $0.status == .pending }) { invitation in
                                     InvitationCard(
                                         invitation: invitation,
                                         preferredColor: preferredColor,
@@ -102,10 +101,7 @@ struct RoomInvitationsView: View {
         .task {
             await loadInvitations()
         }
-        .background(
-            NavigationLink(destination: RoomListView(), isActive: $navigateToRoomList) { EmptyView() }
-                .hidden()
-        )
+
     }
     
     private func loadInvitations() async {
@@ -136,10 +132,10 @@ struct RoomInvitationsView: View {
                 invitations.removeAll { $0.invitationId == invitation.invitationId }
             }
             
-            // If accepted, navigate to room list
+            // If accepted, dismiss the view to go back to room list
             if action == "accept" {
                 await MainActor.run {
-                    navigateToRoomList = true
+                    dismiss()
                 }
             }
         } catch {
@@ -200,11 +196,11 @@ struct InvitationCard: View {
                         }) {
                             Text("Accept")
                                 .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .foregroundColor(.white)
+                                .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 20)
-                                .background(Color.accentColor)
+                                .background(Color.white)
                                 .cornerRadius(12)
                         }
                         .disabled(isResponding)

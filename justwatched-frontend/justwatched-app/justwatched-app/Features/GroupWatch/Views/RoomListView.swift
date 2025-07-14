@@ -115,26 +115,24 @@ struct RoomListView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showCreateRoom) {
-                CreateRoomView { name, description, maxParticipants in
+            .background(
+                NavigationLink(destination: CreateRoomView { name, description, maxParticipants in
                     if let jwt = authManager.jwt {
-                        Task {
-                            let success = await viewModel.createRoom(
-                                name: name,
-                                description: description,
-                                maxParticipants: maxParticipants,
-                                jwt: jwt
-                            )
-                            if success {
-                                showCreateRoom = false
-                            }
-                        }
+                        return await viewModel.createRoom(
+                            name: name,
+                            description: description,
+                            maxParticipants: maxParticipants,
+                            jwt: jwt
+                        )
                     }
-                }
-            }
-            .sheet(isPresented: $showInvitations) {
-                RoomInvitationsView()
-            }
+                    return false
+                }, isActive: $showCreateRoom) { EmptyView() }
+                    .hidden()
+            )
+            .background(
+                NavigationLink(destination: RoomInvitationsView(), isActive: $showInvitations) { EmptyView() }
+                    .hidden()
+            )
 
         }
     }
@@ -304,15 +302,84 @@ struct RoomCard: View {
     let onLeave: () -> Void
     let onDelete: () -> Void
     @ObservedObject var viewModel: RoomListViewModel
+    @State private var showLeaveConfirmation = false
+    @State private var showJoinConfirmation = false
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(room.name)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(room.name)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        StatusBadge(status: room.status)
+
+                        Spacer()
+
+                        HStack(spacing: 8) {
+                    if isOwner {
+                        Button(action: {
+                            showDeleteConfirmation = true
+                        }) {
+                            if viewModel.deletingRoomId == room.roomId {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(1.5)
+                                    .padding(.trailing, 2)
+                            } else {
+                                Image(systemName: "trash")
+                                    .font(.body)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .disabled(viewModel.deletingRoomId == room.roomId)
+                        .alert("Delete Room", isPresented: $showDeleteConfirmation) {
+                            Button("Cancel", role: .cancel) { }
+                            Button("Delete", role: .destructive) {
+                                onDelete()
+                            }
+                        } message: {
+                            Text("Are you sure you want to delete the room? This action cannot be undone.")
+                        }
+                    } else if isParticipant {
+                        Button(action: {
+                            showLeaveConfirmation = true
+                        }) {
+                            Image(systemName: "figure.walk")
+                                .font(.body)
+                                .foregroundColor(.white)
+                        }
+                        .alert("Leave Room", isPresented: $showLeaveConfirmation) {
+                            Button("Cancel", role: .cancel) { }
+                            Button("Leave", role: .destructive) {
+                                onLeave()
+                            }
+                        } message: {
+                            Text("Are you sure you want to leave the room?")
+                        }
+                    } else {
+                        Button(action: {
+                            showJoinConfirmation = true
+                        }) {
+                            Image(systemName: "door.left.hand.closed")
+                                .font(.body)
+                                .foregroundColor(.white)
+                        }
+                        .alert("Join Room", isPresented: $showJoinConfirmation) {
+                            Button("Cancel", role: .cancel) { }
+                            Button("Join") {
+                                onJoin()
+                            }
+                        } message: {
+                            Text("Are you sure you want to join the room?")
+                        }
+                    }
+                }
+                    }
                     
                     if let description = room.description, !description.isEmpty {
                         Text(description)
@@ -323,13 +390,7 @@ struct RoomCard: View {
                 }
                 
                 Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    StatusBadge(status: room.status)
-                    Text("\(room.currentParticipants)/\(room.maxParticipants)")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
+            
             }
             
             HStack {
@@ -344,34 +405,65 @@ struct RoomCard: View {
                 
                 Spacer()
                 
-                HStack(spacing: 8) {
-                    if isOwner {
-                        Button(action: onDelete) {
-                            if viewModel.deletingRoomId == room.roomId {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(1.5)
-                                    .padding(.trailing, 2)
-                            }
-                            Text("Delete")
-                        }
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .disabled(viewModel.deletingRoomId == room.roomId)
-                    } else if isParticipant {
-                        Button("Leave") {
-                            onLeave()
-                        }
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                    } else {
-                        Button("Join") {
-                            onJoin()
-                        }
-                        .font(.caption)
-                        .foregroundColor(preferredColor)
-                    }
-                }
+                // HStack(spacing: 8) {
+                //     if isOwner {
+                //         Button(action: {
+                //             showDeleteConfirmation = true
+                //         }) {
+                //             if viewModel.deletingRoomId == room.roomId {
+                //                 ProgressView()
+                //                     .tint(.white)
+                //                     .scaleEffect(1.5)
+                //                     .padding(.trailing, 2)
+                //             } else {
+                //                 Image(systemName: "trash")
+                //                     .font(.body)
+                //                     .foregroundColor(.white)
+                //             }
+                //         }
+                //         .disabled(viewModel.deletingRoomId == room.roomId)
+                //         .alert("Delete Room", isPresented: $showDeleteConfirmation) {
+                //             Button("Cancel", role: .cancel) { }
+                //             Button("Delete", role: .destructive) {
+                //                 onDelete()
+                //             }
+                //         } message: {
+                //             Text("Are you sure you want to delete the room? This action cannot be undone.")
+                //         }
+                //     } else if isParticipant {
+                //         Button(action: {
+                //             showLeaveConfirmation = true
+                //         }) {
+                //             Image(systemName: "door.left.hand.closed")
+                //                 .font(.body)
+                //                 .foregroundColor(.white)
+                //         }
+                //         .alert("Leave Room", isPresented: $showLeaveConfirmation) {
+                //             Button("Cancel", role: .cancel) { }
+                //             Button("Leave", role: .destructive) {
+                //                 onLeave()
+                //             }
+                //         } message: {
+                //             Text("Are you sure you want to leave the room?")
+                //         }
+                //     } else {
+                //         Button(action: {
+                //             showJoinConfirmation = true
+                //         }) {
+                //             Image(systemName: "door.left.hand.closed")
+                //                 .font(.body)
+                //                 .foregroundColor(.white)
+                //         }
+                //         .alert("Join Room", isPresented: $showJoinConfirmation) {
+                //             Button("Cancel", role: .cancel) { }
+                //             Button("Join") {
+                //                 onJoin()
+                //             }
+                //         } message: {
+                //             Text("Are you sure you want to join the room?")
+                //         }
+                //     }
+                // }
             }
         }
         .padding()
@@ -395,14 +487,9 @@ struct StatusBadge: View {
     let status: RoomStatus
     
     var body: some View {
-        Text(status.displayName)
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(statusColor.opacity(0.2))
-            .foregroundColor(statusColor)
-            .cornerRadius(8)
+        Circle()
+            .fill(statusColor)
+            .frame(width: 10, height: 10)
     }
     
     private var statusColor: Color {

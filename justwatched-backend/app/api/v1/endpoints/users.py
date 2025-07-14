@@ -8,6 +8,7 @@ from app.schemas.user import UserColor
 from datetime import datetime
 from app.core.config import settings
 from app.core.redis_client import redis_client
+from app.services.account_deletion_service import AccountDeletionService
 import json
 
 router = APIRouter()
@@ -330,4 +331,43 @@ async def generate_my_recommendations(current_user=Depends(get_current_user)):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to trigger recommendation generation: {str(e)}"
+        )
+
+@router.delete("/me", response_model=dict)
+async def delete_my_account(current_user=Depends(get_current_user)):
+    """Delete the current user's account and all associated data."""
+    user_id = current_user["sub"]
+    
+    try:
+        # Initialize the account deletion service
+        deletion_service = AccountDeletionService()
+        
+        # Perform the account deletion
+        deletion_summary = await deletion_service.delete_user_account(user_id)
+        
+        if deletion_summary["success"]:
+            return {
+                "message": "Account deleted successfully",
+                "deletion_summary": deletion_summary
+            }
+        else:
+            # If there were errors but the account was still deleted
+            if deletion_summary["deleted_items"].get("user_profile"):
+                return {
+                    "message": "Account deleted with some errors",
+                    "deletion_summary": deletion_summary,
+                    "warning": "Some data may not have been fully cleaned up"
+                }
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to delete account: {deletion_summary['errors']}"
+                )
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Account deletion failed: {str(e)}"
         ) 

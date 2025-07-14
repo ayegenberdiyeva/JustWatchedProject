@@ -9,56 +9,66 @@ struct CreateRoomView: View {
     @State private var error: String?
     @State private var gradientAngle: Double = 0.0
     
-    let onComplete: (String, String?, Int) -> Void
+    let onComplete: (String, String?, Int) async -> Bool
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        headerSection
-                        formSection
-                    }
-                    .padding(.top)
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    headerSection
+                    formSection
                 }
+                .padding(.top)
             }
-            .navigationTitle("Create Room")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.black, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.gray)
+        }
+        .navigationTitle("Create Room")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel") {
+                    dismiss()
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
+                .foregroundColor(.gray)
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if isLoading {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                        Text("Creating...")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    }
+                } else {
                     Button("Create") {
                         createRoom()
                     }
                     .foregroundColor(isFormValid ? preferredColor : .gray)
-                    .disabled(!isFormValid || isLoading)
+                    .disabled(!isFormValid)
                 }
             }
-            .alert("Error", isPresented: .constant(error != nil)) {
-                Button("OK") {
-                    error = nil
-                }
-            } message: {
-                if let error = error {
-                    Text(error)
-                }
+        }
+        .navigationBarBackButtonHidden(true)
+        .alert("Error", isPresented: .constant(error != nil)) {
+            Button("OK") {
+                error = nil
             }
-            .onAppear {
-                startGradientAnimation()
+        } message: {
+            if let error = error {
+                Text(error)
             }
-            .onDisappear {
-                stopGradientAnimation()
-            }
+        }
+        .onAppear {
+            startGradientAnimation()
+        }
+        .onDisappear {
+            stopGradientAnimation()
         }
     }
     
@@ -148,18 +158,14 @@ struct CreateRoomView: View {
                     .foregroundColor(.white)
                 
                 HStack {
-                    Text("\(maxParticipants)")
+                    Text("10")
                         .font(.title2.bold())
                         .foregroundColor(preferredColor)
                         .frame(width: 60)
                     
-                    Slider(value: Binding(
-                        get: { Double(maxParticipants) },
-                        set: { maxParticipants = Int($0) }
-                    ), in: 2...10, step: 1)
-                    .accentColor(preferredColor)
+                    Spacer()
                     
-                    Text("10")
+                    Text("Soon")
                         .font(.caption)
                         .foregroundColor(.gray)
                         .frame(width: 30)
@@ -192,19 +198,19 @@ struct CreateRoomView: View {
             .cornerRadius(16)
             
             // Create Button
-            if isLoading {
-                HStack {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                    Text("Creating room...")
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(hex: "393B3D").opacity(0.3))
-                .cornerRadius(16)
-            }
+            // if isLoading {
+            //     HStack {
+            //         ProgressView()
+            //             .tint(.white)
+            //             .scaleEffect(1.5)
+            //         Text("Creating room...")
+            //             .foregroundColor(.white)
+            //     }
+            //     .frame(maxWidth: .infinity)
+            //     .padding()
+            //     .background(Color(hex: "393B3D").opacity(0.3))
+            //     .cornerRadius(16)
+            // }
         }
         .padding(.horizontal)
     }
@@ -235,8 +241,18 @@ struct CreateRoomView: View {
         let trimmedDescription = roomDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalDescription = trimmedDescription.isEmpty ? nil : trimmedDescription
         
-        onComplete(trimmedName, finalDescription, maxParticipants)
-        dismiss()
+        Task {
+            let success = await onComplete(trimmedName, finalDescription, 10)
+            
+            await MainActor.run {
+                isLoading = false
+                if success {
+                    dismiss() // Navigate back to RoomListView
+                } else {
+                    error = "Failed to create room. Please try again."
+                }
+            }
+        }
     }
     
     private func startGradientAnimation() {
@@ -270,8 +286,8 @@ struct InfoRow: View {
     }
 }
 
-#Preview {
-    CreateRoomView { name, description, maxParticipants in
-        print("Creating room: \(name)")
-    }
-} 
+//#Preview {
+//    CreateRoomView { name, description, maxParticipants in
+//        print("Creating room: \(name)")
+//    }
+//} 

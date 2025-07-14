@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.schemas.ai import PersonalRecommendationList, GroupRecommendationList
 from app.core.firestore import get_firestore_client, run_in_threadpool
 
@@ -31,4 +31,19 @@ class RecommendationCRUD:
         doc = await run_in_threadpool(lambda: self.group_col.document(group_id).get())
         if doc.exists:
             return GroupRecommendationList(**doc.to_dict())
-        return None 
+        return None
+
+    async def get_user_recommendations(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get personal recommendations for a user."""
+        doc = await run_in_threadpool(lambda: self.personal_col.document(user_id).get())
+        if doc.exists:
+            return doc.to_dict()
+        return None
+
+    async def delete_user_recommendations(self, user_id: str) -> bool:
+        """Delete personal recommendations for a user."""
+        try:
+            await run_in_threadpool(lambda: self.personal_col.document(user_id).delete())
+            return True
+        except Exception:
+            return False 

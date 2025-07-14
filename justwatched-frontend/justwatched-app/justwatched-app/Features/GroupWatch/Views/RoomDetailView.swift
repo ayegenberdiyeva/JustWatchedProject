@@ -71,9 +71,14 @@ struct RoomDetailView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(room.name)
-                            .font(.title2.bold())
-                            .foregroundColor(.white)
+
+                        HStack {
+                            
+                            Text(room.name)
+                                .font(.title2.bold())
+                                .foregroundColor(.white)
+                            StatusBadge(status: room.status)
+                        }
                         
                         if let description = room.description, !description.isEmpty {
                             Text(description)
@@ -85,7 +90,7 @@ struct RoomDetailView: View {
                     
                     Spacer()
                     
-                    StatusBadge(status: room.status)
+                    // StatusBadge(status: room.status)
                 }
                 
                 HStack(spacing: 16) {
@@ -157,10 +162,10 @@ struct RoomDetailView: View {
                     }
                 }) {
                     VStack {
-                        Text("Start")
+                        Text("Start Voting")
                             .font(.caption)
                             .foregroundColor(.white)
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: "checklist")
                             .font(.title3.bold())
                             .foregroundColor(.white)
                             .frame(height: 20)
@@ -231,9 +236,9 @@ struct RoomDetailView: View {
                         viewModel.startVoting(roomId: roomId, jwt: jwt)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(preferredColor)
+                .frame(maxWidth: .infinity)
+                .padding(8)
+                .background(Color.black.opacity(0.3))
                 .foregroundColor(.white)
                 .cornerRadius(12)
             }
@@ -361,26 +366,47 @@ struct RoomDetailView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                 Spacer()
-                
-                if viewModel.isProcessingRecommendations {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(1.5)
-                        Text("Processing...")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                    }
-                }
             }
             .padding(.horizontal, 16)
             
-            if viewModel.recommendations.isEmpty {
-                emptyRecommendationsSection
-            } else {
-                recommendationsList
+            VStack(alignment: .center) {
+                if viewModel.isProcessingRecommendations {
+                    generatingRecommendationsSection
+                } else if viewModel.recommendations.isEmpty {
+                    emptyRecommendationsSection
+                } else {
+                    recommendationsList
+                }
             }
+
+            
         }
+    }
+    
+    private var generatingRecommendationsSection: some View {
+        VStack(alignment: .center, spacing: 16) {
+            let colorValue = AuthManager.shared.userProfile?.color ?? "red"
+            Image(systemName: "sparkles")
+                .font(.system(size: 40))
+                .foregroundStyle(
+                    AngularGradient(
+                        gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
+                        center: .center,
+                        startAngle: .degrees(0),
+                        endAngle: .degrees(360)
+                    )
+                )
+                .rotationEffect(.degrees(viewModel.isProcessingRecommendations ? 360 : 0))
+                .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: viewModel.isProcessingRecommendations)
+            
+            Text("Generating...")
+                .font(.caption)
+                .foregroundColor(.white)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .cornerRadius(24)
+        .padding(.horizontal)
     }
     
     private var emptyRecommendationsSection: some View {
@@ -397,7 +423,7 @@ struct RoomDetailView: View {
                 .multilineTextAlignment(.center)
         }
         .padding()
-        .background(Color(hex: "393B3D").opacity(0.3))
+        // .background(Color(hex: "393B3D").opacity(0.3))
         .cornerRadius(24)
         .padding(.horizontal)
     }

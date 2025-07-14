@@ -13,7 +13,16 @@ class TasteProfileCRUD:
         await run_in_threadpool(lambda: self.taste_profiles_col.document(user_id).set(data))
 
     async def get_taste_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get taste profile for a user."""
         doc = await run_in_threadpool(lambda: self.taste_profiles_col.document(user_id).get())
         if doc.exists:
             return doc.to_dict()
-        return None 
+        return None
+
+    async def delete_taste_profile(self, user_id: str) -> bool:
+        """Delete taste profile for a user."""
+        try:
+            await run_in_threadpool(lambda: self.taste_profiles_col.document(user_id).delete())
+            return True
+        except Exception:
+            return False 

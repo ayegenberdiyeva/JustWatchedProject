@@ -130,6 +130,14 @@ class SearchHistoryCRUD:
         
         return await run_in_threadpool(clear)
 
+    async def delete_user_search_history(self, user_id: str) -> bool:
+        """Delete all search history for a user (alias for clear_user_search_history)."""
+        try:
+            deleted_count = await self.clear_user_search_history(user_id)
+            return deleted_count >= 0  # Return True if operation completed (even if 0 items deleted)
+        except Exception:
+            return False
+
     async def get_search_analytics(self, user_id: str, days_back: int = 30) -> Dict[str, Any]:
         """Get analytics data for user's search patterns."""
         def analyze():

@@ -28,10 +28,10 @@ struct InviteFriendsView: View {
         return invitations.first { $0.toUserId == friendId }?.status
     }
     
-    // Check if friend can be invited (no pending/accepted invitation)
+    // Check if friend can be invited (no pending/accepted/declined invitation)
     private func canInviteFriend(_ friendId: String) -> Bool {
         guard let status = getInvitationStatus(for: friendId) else { return true }
-        return status == .declined
+        return false // Cannot invite if any invitation status exists
     }
     
     var body: some View {
