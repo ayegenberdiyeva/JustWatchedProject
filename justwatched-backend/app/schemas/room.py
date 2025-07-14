@@ -38,6 +38,7 @@ class RoomInvitation(BaseModel):
     from_user_id: str
     from_user_name: str
     to_user_id: str
+    to_user_name: str
     status: InvitationStatus
     created_at: datetime
     responded_at: Optional[datetime] = None

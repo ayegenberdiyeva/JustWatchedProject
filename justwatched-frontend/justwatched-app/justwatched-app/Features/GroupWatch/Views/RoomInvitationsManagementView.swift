@@ -82,6 +82,7 @@ struct RoomInvitationsManagementView: View {
                                 ForEach(invitations) { invitation in
                                     InvitationManagementCard(
                                         invitation: invitation,
+                                        receiverName: invitation.toUserName,
                                         preferredColor: preferredColor
                                     )
                                 }
@@ -121,13 +122,14 @@ struct RoomInvitationsManagementView: View {
 // MARK: - Invitation Management Card
 struct InvitationManagementCard: View {
     let invitation: RoomInvitation
+    let receiverName: String
     let preferredColor: Color
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // User Info
             VStack(alignment: .leading, spacing: 4) {
-                Text(invitation.fromUserName)
+                Text(receiverName)
                     .font(.headline)
                     .foregroundColor(.white)
                 

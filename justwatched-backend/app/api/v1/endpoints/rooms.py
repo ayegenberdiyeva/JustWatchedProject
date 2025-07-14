@@ -64,12 +64,15 @@ async def get_my_invitations(
             if room:
                 # Get sender details
                 sender_profile = await user_crud.get_user_profile(invitation["from_user_id"])
+                # Get receiver details (current user)
+                receiver_profile = await user_crud.get_user_profile(invitation["to_user_id"])
                 
                 enriched_invitation = {
                     **invitation,
                     "room_name": room["name"],
                     "room_description": room.get("description"),
-                    "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown"
+                    "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown",
+                    "to_user_name": receiver_profile.get("display_name", "Unknown") if receiver_profile else "Unknown"
                 }
                 enriched_invitations.append(RoomInvitation(**enriched_invitation))
         

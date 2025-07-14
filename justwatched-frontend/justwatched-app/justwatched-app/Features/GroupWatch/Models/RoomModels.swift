@@ -313,6 +313,7 @@ struct RoomInvitation: Codable, Identifiable {
     let fromUserId: String
     let fromUserName: String
     let toUserId: String
+    let toUserName: String
     let status: InvitationStatus
     let createdAt: String
     let respondedAt: String?
@@ -327,6 +328,7 @@ struct RoomInvitation: Codable, Identifiable {
         case fromUserId = "from_user_id"
         case fromUserName = "from_user_name"
         case toUserId = "to_user_id"
+        case toUserName = "to_user_name"
         case status
         case createdAt = "created_at"
         case respondedAt = "responded_at"
