@@ -5,6 +5,7 @@ struct RoomInvitationsView: View {
     @State private var invitations: [RoomInvitation] = []
     @State private var isLoading = false
     @State private var error: String? = nil
+    @State private var navigateToRoomList = false
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -101,6 +102,10 @@ struct RoomInvitationsView: View {
         .task {
             await loadInvitations()
         }
+        .background(
+            NavigationLink(destination: RoomListView(), isActive: $navigateToRoomList) { EmptyView() }
+                .hidden()
+        )
     }
     
     private func loadInvitations() async {
@@ -125,7 +130,18 @@ struct RoomInvitationsView: View {
                 throw NetworkError.invalidURL
             }
             try await RoomService().respondToInvitation(invitationId: invitation.invitationId, action: action, jwt: jwt)
-            await loadInvitations() // Refresh the list
+            
+            // Remove the invitation from the local list
+            await MainActor.run {
+                invitations.removeAll { $0.invitationId == invitation.invitationId }
+            }
+            
+            // If accepted, navigate to room list
+            if action == "accept" {
+                await MainActor.run {
+                    navigateToRoomList = true
+                }
+            }
         } catch {
             print("Error responding to invitation: \(error)")
         }
@@ -165,66 +181,52 @@ struct InvitationCard: View {
                     
                     Spacer()
                     
-                    Text(invitation.status.displayName)
-                        .font(.caption)
-                        .foregroundColor(statusColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(statusColor.opacity(0.2))
-                        .cornerRadius(8)
+                    // Text(invitation.status.displayName)
+                    //     .font(.caption)
+                    //     .foregroundColor(statusColor)
+                    //     .padding(.horizontal, 8)
+                    //     .padding(.vertical, 2)
+                    //     .background(statusColor.opacity(0.2))
+                    //     .cornerRadius(8)
                 }
             }
             
-            // Action Buttons (only show for pending invitations)
-            if invitation.status == .pending {
-                HStack(spacing: 12) {
-                    Button(action: {
-                        isResponding = true
-                        onAccept()
-                    }) {
-                        HStack {
-                            if isResponding {
-                                ProgressView()
-                                    .tint(.black)
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "checkmark")
-                            }
+                            // Action Buttons (only show for pending invitations)
+                if invitation.status == .pending {
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            isResponding = true
+                            onAccept()
+                        }) {
                             Text("Accept")
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 20)
+                                .background(Color.accentColor)
+                                .cornerRadius(12)
                         }
-                        .font(.headline)
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(preferredColor)
-                        .cornerRadius(12)
-                    }
-                    .disabled(isResponding)
-                    
-                    Button(action: {
-                        isResponding = true
-                        onDecline()
-                    }) {
-                        HStack {
-                            if isResponding {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: "xmark")
-                            }
+                        .disabled(isResponding)
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Button(action: {
+                            isResponding = true
+                            onDecline()
+                        }) {
                             Text("Decline")
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 20)
+                                .background(Color.secondary)
+                                .cornerRadius(12)
                         }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.red)
-                        .cornerRadius(12)
+                        .disabled(isResponding)
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .disabled(isResponding)
                 }
-            }
         }
         .padding()
         .background(Color(hex: "393B3D").opacity(0.3))

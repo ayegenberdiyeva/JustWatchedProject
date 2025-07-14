@@ -367,4 +367,14 @@ struct RoomInviteResponse: Codable {
         case createdInvitations = "created_invitations"
         case totalRequested = "total_requested"
     }
+}
+
+// MARK: - Invited Member Model
+struct InvitedMember: Identifiable {
+    let userId: String
+    let userName: String
+    let status: InvitationStatus
+    let isOwner: Bool
+    
+    var id: String { userId }
 } 

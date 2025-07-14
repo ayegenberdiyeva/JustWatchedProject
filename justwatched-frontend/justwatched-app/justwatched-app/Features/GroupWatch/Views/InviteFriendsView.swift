@@ -5,6 +5,7 @@ struct InviteFriendsView: View {
     let roomName: String
     @Environment(\.dismiss) private var dismiss
     @State private var friends: [UserSearchResult] = []
+    @State private var invitations: [RoomInvitation] = []
     @State private var selectedFriends: Set<String> = []
     @State private var isLoading = false
     @State private var isInviting = false
@@ -20,6 +21,17 @@ struct InviteFriendsView: View {
         case "pink": return .pink
         default: return .white
         }
+    }
+    
+    // Get invitation status for a friend
+    private func getInvitationStatus(for friendId: String) -> InvitationStatus? {
+        return invitations.first { $0.toUserId == friendId }?.status
+    }
+    
+    // Check if friend can be invited (no pending/accepted invitation)
+    private func canInviteFriend(_ friendId: String) -> Bool {
+        guard let status = getInvitationStatus(for: friendId) else { return true }
+        return status == .declined
     }
     
     var body: some View {
@@ -62,15 +74,19 @@ struct InviteFriendsView: View {
                         ScrollView {
                             LazyVStack(spacing: 12) {
                                 ForEach(friends) { friend in
-                                    FriendSelectionRow(
+                                    FriendInvitationRow(
                                         friend: friend,
+                                        invitationStatus: getInvitationStatus(for: friend.user_id),
                                         isSelected: selectedFriends.contains(friend.user_id),
+                                        canInvite: canInviteFriend(friend.user_id),
                                         preferredColor: preferredColor,
                                         onToggle: {
-                                            if selectedFriends.contains(friend.user_id) {
-                                                selectedFriends.remove(friend.user_id)
-                                            } else {
-                                                selectedFriends.insert(friend.user_id)
+                                            if canInviteFriend(friend.user_id) {
+                                                if selectedFriends.contains(friend.user_id) {
+                                                    selectedFriends.remove(friend.user_id)
+                                                } else {
+                                                    selectedFriends.insert(friend.user_id)
+                                                }
                                             }
                                         }
                                     )
@@ -141,11 +157,11 @@ struct InviteFriendsView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .task {
-            await loadFriends()
+            await loadData()
         }
     }
     
-    private func loadFriends() async {
+    private func loadData() async {
         isLoading = true
         error = nil
         
@@ -153,23 +169,40 @@ struct InviteFriendsView: View {
             guard let jwt = AuthManager.shared.jwt else {
                 throw NetworkError.invalidURL
             }
-            // Load friends using the existing friends service
-            let friendList = try await FriendsService.shared.getFriends()
-            // Convert Friend objects to UserSearchResult objects
-            friends = friendList.map { friend in
-                UserSearchResult(
-                    user_id: friend.user_id,
-                    display_name: friend.display_name,
-                    color: friend.color,
-                    is_friend: true,
-                    friend_status: "friends"
-                )
-            }
+            
+            // Load friends and invitations concurrently
+            async let friendsTask = loadFriends()
+            async let invitationsTask = loadInvitations(jwt: jwt)
+            
+            let (friendsList, invitationsList) = await (try friendsTask, try invitationsTask)
+            
+            friends = friendsList
+            invitations = invitationsList
+            
         } catch {
             self.error = error.localizedDescription
         }
         
         isLoading = false
+    }
+    
+    private func loadFriends() async throws -> [UserSearchResult] {
+        // Load friends using the existing friends service
+        let friendList = try await FriendsService.shared.getFriends()
+        // Convert Friend objects to UserSearchResult objects
+        return friendList.map { friend in
+            UserSearchResult(
+                user_id: friend.user_id,
+                display_name: friend.display_name,
+                color: friend.color,
+                is_friend: true,
+                friend_status: "friends"
+            )
+        }
+    }
+    
+    private func loadInvitations(jwt: String) async throws -> [RoomInvitation] {
+        return try await RoomService().fetchRoomInvitations(roomId: roomId, jwt: jwt)
     }
     
     private func sendInvitations() async {
@@ -190,6 +223,13 @@ struct InviteFriendsView: View {
             // Clear selection after successful invitation
             selectedFriends.removeAll()
             
+            // Refresh invitations to update the UI
+            do {
+                invitations = try await loadInvitations(jwt: jwt)
+            } catch {
+                print("Failed to refresh invitations: \(error)")
+            }
+            
             // Dismiss after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 dismiss()
@@ -202,10 +242,12 @@ struct InviteFriendsView: View {
     }
 }
 
-// MARK: - Friend Selection Row
-struct FriendSelectionRow: View {
+// MARK: - Friend Invitation Row
+struct FriendInvitationRow: View {
     let friend: UserSearchResult
+    let invitationStatus: InvitationStatus?
     let isSelected: Bool
+    let canInvite: Bool
     let preferredColor: Color
     let onToggle: () -> Void
     
@@ -216,13 +258,47 @@ struct FriendSelectionRow: View {
                     Text(friend.display_name)
                         .font(.headline)
                         .foregroundColor(.white)
+                    
+                    // Show invitation status if exists
+                    if let status = invitationStatus {
+                        HStack(spacing: 4) {
+                            Text("Status:")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            Text(status.displayName)
+                                .font(.caption)
+                                .foregroundColor(statusColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(statusColor.opacity(0.2))
+                                .cornerRadius(6)
+                        }
+                    }
                 }
                 
                 Spacer()
                 
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundColor(isSelected ? preferredColor : .gray)
+                // Show different icons based on status
+                if let status = invitationStatus {
+                    switch status {
+                    case .pending:
+                        Image(systemName: "clock")
+                            .font(.title2)
+                            .foregroundColor(.yellow)
+                    case .accepted:
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.green)
+                    case .declined:
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.red)
+                    }
+                } else if canInvite {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundColor(isSelected ? preferredColor : .gray)
+                }
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -233,6 +309,16 @@ struct FriendSelectionRow: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(isSelected ? preferredColor : Color.clear, lineWidth: 2)
         )
+        .opacity(canInvite ? 1.0 : 0.6)
+    }
+    
+    private var statusColor: Color {
+        switch invitationStatus {
+        case .pending: return .yellow
+        case .accepted: return .green
+        case .declined: return .red
+        case .none: return .gray
+        }
     }
 }
 

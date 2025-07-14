@@ -5,6 +5,7 @@ struct RoomListView: View {
     @ObservedObject private var authManager = AuthManager.shared
     @State private var showCreateRoom = false
     @State private var showInvitations = false
+    @State private var pendingInvitationsCount = 0
     
     var body: some View {
         NavigationStack {
@@ -66,34 +67,52 @@ struct RoomListView: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            showInvitations = true
-                        }) {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        showInvitations = true
+                    }) {
+                        ZStack {
                             Image(systemName: "envelope")
                                 .foregroundColor(.white)
-                        }
-                        
-                        Button(action: {
-                            if authManager.isAuthenticated, let jwt = authManager.jwt {
-                                Task { await viewModel.fetchRooms(jwt: jwt) }
+                            if pendingInvitationsCount > 0 {
+                                Text("\(pendingInvitationsCount)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.black)
+                                    .padding(4)
+                                    .background(Color.white)
+                                    .clipShape(Circle())
+                                    .offset(x: 8, y: -8)
                             }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.white)
                         }
+                    }
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        if authManager.isAuthenticated, let jwt = authManager.jwt {
+                            Task { await viewModel.fetchRooms(jwt: jwt) }
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.white)
                     }
                 }
             }
             .onAppear {
                 if authManager.isAuthenticated, let jwt = authManager.jwt {
-                    Task { await viewModel.fetchRooms(jwt: jwt) }
+                    Task { 
+                        await viewModel.fetchRooms(jwt: jwt)
+                        await loadPendingInvitationsCount(jwt: jwt)
+                    }
                 }
             }
             .onChange(of: authManager.isAuthenticated) { isAuthenticated in
                 if isAuthenticated, let jwt = authManager.jwt {
-                    Task { await viewModel.fetchRooms(jwt: jwt) }
+                    Task { 
+                        await viewModel.fetchRooms(jwt: jwt)
+                        await loadPendingInvitationsCount(jwt: jwt)
+                    }
                 }
             }
             .sheet(isPresented: $showCreateRoom) {
@@ -136,7 +155,7 @@ struct RoomListView: View {
                         .font(.title2.bold())
                         .foregroundColor(.white)
                 }
-                Text("Create or join rooms to watch movies together")
+                Text("Create or join rooms to choose movies together")
                     .font(.footnote)
                     .foregroundColor(.white)
                     .lineLimit(2)
@@ -173,7 +192,7 @@ struct RoomListView: View {
             .cornerRadius(12)
         }
         .padding()
-        .background(Color(hex: "393B3D").opacity(0.3))
+        // .background(Color(hex: "393B3D").opacity(0.3))
         .cornerRadius(24)
         .padding(.horizontal)
     }
@@ -199,7 +218,7 @@ struct RoomListView: View {
             .cornerRadius(12)
         }
         .padding()
-        .background(Color(hex: "393B3D").opacity(0.3))
+        // .background(Color(hex: "393B3D").opacity(0.3))
         .cornerRadius(24)
         .padding(.horizontal)
     }
@@ -211,11 +230,13 @@ struct RoomListView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                 Spacer()
-                Button("Create Room") {
+                Button(action: {
                     showCreateRoom = true
+                }) {
+                    Image(systemName: "plus")
+                        .font(.title2)
+                        .foregroundColor(.white)
                 }
-                .font(.subheadline)
-                .foregroundColor(preferredColor)
             }
             .padding(.horizontal, 16)
             
@@ -259,6 +280,18 @@ struct RoomListView: View {
         case "blue": return .blue
         case "pink": return .pink
         default: return .white
+        }
+    }
+    
+    private func loadPendingInvitationsCount(jwt: String) async {
+        do {
+            let invitations = try await RoomService().fetchMyInvitations(jwt: jwt)
+            let pendingCount = invitations.filter { $0.status == .pending }.count
+            await MainActor.run {
+                pendingInvitationsCount = pendingCount
+            }
+        } catch {
+            print("Failed to load pending invitations count: \(error)")
         }
     }
 }

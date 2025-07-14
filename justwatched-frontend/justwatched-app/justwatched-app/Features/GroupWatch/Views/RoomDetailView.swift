@@ -90,27 +90,36 @@ struct RoomDetailView: View {
                 
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(room.currentParticipants)")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
+                        HStack(alignment: .bottom) {
+                            Text("\(room.currentParticipants)")
+                                .font(.title3.bold())
+                                .foregroundColor(.white)
+                            Text("out of")
+                                .font(.body) 
+                                .foregroundColor(.white)    
+                            Text("\(room.maxParticipants)")
+                                .font(.title3.bold())
+                                .foregroundColor(.white)                            
+                        }
+
                         Text("Participants")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
                     }
                     
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(room.maxParticipants)")
-                            .font(.title3.bold())
-                            .foregroundColor(.white)
-                        Text("Max")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
+                    // VStack(alignment: .leading, spacing: 4) {
+                    //     Text("\(room.maxParticipants)")
+                    //         .font(.title3.bold())
+                    //         .foregroundColor(.white)
+                    //     Text("Max")
+                    //         .font(.caption)
+                    //         .foregroundColor(.white.opacity(0.7))
+                    // }
                     
                     VStack(alignment: .leading, spacing: 4) {
                         Text(viewModel.formatDate(room.createdAt))
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
                         Text("Created")
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.7))
@@ -118,6 +127,7 @@ struct RoomDetailView: View {
                     
                     Spacer()
                 }
+                .frame(maxWidth: .infinity)
                 
                 // Action Buttons
                 if viewModel.isOwner {
@@ -139,61 +149,77 @@ struct RoomDetailView: View {
     @State private var showInvitations = false
     
     private func ownerActionButtons(room: Room) -> some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                if room.status == .active && !viewModel.recommendations.isEmpty {
-                    Button("Start Voting") {
-                        if let jwt = authManager.jwt {
-                            Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
-                        }
+        HStack(spacing: 6) {
+            if room.status == .active && !viewModel.recommendations.isEmpty {
+                Button(action: {
+                    if let jwt = authManager.jwt {
+                        Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(preferredColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                }
-                
-                if room.status == .active && viewModel.recommendations.isEmpty {
-                    Button("Generate Recommendations") {
-                        if let jwt = authManager.jwt {
-                            Task { await viewModel.processRecommendations(roomId: roomId, jwt: jwt) }
-                        }
+                }) {
+                    VStack {
+                        Text("Start")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(height: 20)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(preferredColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
                 }
+                .frame(maxWidth: .infinity)
+                .padding(8)
+                .background(Color.black.opacity(0.3))
+                .foregroundColor(.white)
+                .cornerRadius(12)
             }
             
-            // Invitation Management Buttons
-            HStack(spacing: 12) {
-                Button("Invite Friends") {
-                    showInviteFriends = true
+            if room.status == .active && viewModel.recommendations.isEmpty {
+                Button(action: {
+                    if let jwt = authManager.jwt {
+                        Task { await viewModel.processRecommendations(roomId: roomId, jwt: jwt) }
+                    }
+                }) {
+                    VStack {
+                        Text("Generate")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                        Image(systemName: "sparkles")
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                            .frame(height: 20)
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(12)
-                
-                Button("View Invitations") {
-                    showInvitations = true
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.orange)
+                .frame(maxWidth: .infinity)
+                .padding(8)
+                .background(Color.black.opacity(0.3))
                 .foregroundColor(.white)
                 .cornerRadius(12)
             }
+            
+            Button(action: {
+                showInviteFriends = true
+            }) {
+                VStack {
+                    Text("Invite")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                    Image(systemName: "person.badge.plus")
+                        .font(.title3.bold())
+                        .foregroundColor(.white)
+                        .frame(height: 20)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(8)
+            .background(Color.black.opacity(0.3))
+            .foregroundColor(.white)
+            .cornerRadius(12)
         }
         .sheet(isPresented: $showInviteFriends) {
             InviteFriendsView(roomId: roomId, roomName: room.name)
         }
         .sheet(isPresented: $showInvitations) {
-            RoomInvitationsManagementView(roomId: roomId, roomName: room.name)
+            InviteFriendsView(roomId: roomId, roomName: room.name)
         }
     }
     
@@ -215,29 +241,71 @@ struct RoomDetailView: View {
     }
     
     @State private var showRemoveMemberAlert = false
-    @State private var memberToRemove: RoomParticipant?
+    @State private var memberToRemove: InvitedMember?
     
     private func participantsSection(room: Room) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Participants")
+            Text("Members")
                 .font(.headline)
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(room.participants) { participant in
-                        ParticipantCard(
-                            participant: participant,
-                            isOwner: room.ownerId == authManager.userProfile?.id,
-                            onRemove: {
-                                memberToRemove = participant
-                                showRemoveMemberAlert = true
-                            }
-                        )
-                    }
+            if viewModel.allInvitedMembers.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "person.2")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray)
+                    Text("No members yet")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("Invite friends to join your room!")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 16)
+                .padding()
+                .background(Color(hex: "393B3D").opacity(0.3))
+                .cornerRadius(24)
+                .padding(.horizontal)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                                                        ForEach(viewModel.allInvitedMembers) { member in
+                                    Button(action: {
+                                        // Handle member selection if needed
+                                    }) {
+                                        HStack {
+                                            if member.isOwner {
+                                                Image(systemName: "crown.fill")
+                                                    .font(.caption)
+                                                    .foregroundColor(.white)
+                                            }
+                                            Text(member.userName)
+                                                .foregroundColor(.white)
+                                                .fontWeight(.medium)
+                                        }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                                .background(memberBackgroundColor(for: member))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(memberBorderColor(for: member), lineWidth: 1)
+                                )
+                                .cornerRadius(16)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                if viewModel.isOwner && !member.isOwner {
+                                    Button("Remove", role: .destructive) {
+                                        memberToRemove = member
+                                        showRemoveMemberAlert = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
             }
         }
         .alert("Remove Member", isPresented: $showRemoveMemberAlert) {
@@ -249,8 +317,30 @@ struct RoomDetailView: View {
             }
         } message: {
             if let member = memberToRemove {
-                Text("Are you sure you want to remove \(member.displayName ?? "this member") from the room?")
+                Text("Are you sure you want to remove \(member.userName) from the room?")
             }
+        }
+    }
+    
+    private func memberBackgroundColor(for member: InvitedMember) -> Color {
+        switch member.status {
+        case .accepted:
+            return preferredColor.opacity(0.18)
+        case .pending:
+            return Color.black.opacity(0.3)
+        case .declined:
+            return Color.gray.opacity(0.3)
+        }
+    }
+    
+    private func memberBorderColor(for member: InvitedMember) -> Color {
+        switch member.status {
+        case .accepted:
+            return preferredColor.opacity(0.5)
+        case .pending:
+            return Color.gray.opacity(0.5)
+        case .declined:
+            return Color.gray.opacity(0.3)
         }
     }
     
@@ -363,46 +453,7 @@ struct RoomDetailView: View {
     }
 }
 
-struct ParticipantCard: View {
-    let participant: RoomParticipant
-    let isOwner: Bool
-    let onRemove: (() -> Void)?
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "393B3D").opacity(0.3))
-                    .frame(width: 50, height: 50)
-                
-                if participant.isOwner {
-                    Image(systemName: "crown.fill")
-                        .font(.title2)
-                        .foregroundColor(.yellow)
-                } else {
-                    Image(systemName: "person.fill")
-                        .font(.title2)
-                        .foregroundColor(.gray)
-                }
-            }
-            
-            Text(participant.displayName ?? "Unknown")
-                .font(.caption)
-                .foregroundColor(.white)
-                .lineLimit(1)
-            
-            // Remove button for room owners (only for non-owners)
-            if isOwner && !participant.isOwner, let onRemove = onRemove {
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-            }
-        }
-        .frame(width: 80)
-    }
-}
+
 
 struct RoomRecommendationCard: View {
     let recommendation: RoomRecommendation

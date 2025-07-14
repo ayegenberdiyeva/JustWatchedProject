@@ -54,8 +54,21 @@ class RoomCRUD:
         # Get participants
         participants_docs = self.participants_collection.where("room_id", "==", room_id).stream()
         participants = []
+        
+        # Import user_crud here to avoid circular imports
+        from app.crud.user_crud import UserCRUD
+        user_crud = UserCRUD()
+        
         for doc in participants_docs:
             participant = doc.to_dict()
+            
+            # Get user profile to get display_name
+            user_profile = await user_crud.get_user_profile(participant["user_id"])
+            if user_profile:
+                participant["display_name"] = user_profile.get("display_name")
+            else:
+                participant["display_name"] = None
+            
             participants.append(participant)
         
         room["participants"] = participants

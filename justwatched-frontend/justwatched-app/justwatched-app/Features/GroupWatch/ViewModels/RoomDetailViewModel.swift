@@ -5,6 +5,7 @@ import SwiftUI
 class RoomDetailViewModel: ObservableObject {
     @Published var room: Room?
     @Published var recommendations: [RoomRecommendation] = []
+    @Published var invitations: [RoomInvitation] = []
     @Published var isLoading = false
     @Published var isProcessingRecommendations = false
     @Published var error: String?
@@ -23,12 +24,96 @@ class RoomDetailViewModel: ObservableObject {
         return room.participants.contains { $0.userId == AuthManager.shared.userProfile?.id }
     }
     
+    // Combined list of all invited members (participants + pending invitations, excluding declined)
+    var allInvitedMembers: [InvitedMember] {
+        var members: [InvitedMember] = []
+        
+        // Always add the room owner first (even if not in participants yet)
+        if let room = room {
+            let ownerInParticipants = room.participants.first { $0.userId == room.ownerId }
+            let ownerName = getOwnerDisplayName(ownerId: room.ownerId, ownerInParticipants: ownerInParticipants)
+            members.append(InvitedMember(
+                userId: room.ownerId,
+                userName: ownerName,
+                status: .accepted,
+                isOwner: true
+            ))
+        }
+        
+        // Add other current participants (excluding owner since we already added them)
+        for participant in room?.participants ?? [] {
+            if participant.userId != room?.ownerId {
+                let userName = getParticipantDisplayName(participant: participant)
+                members.append(InvitedMember(
+                    userId: participant.userId,
+                    userName: userName,
+                    status: .accepted,
+                    isOwner: false
+                ))
+            }
+        }
+        
+        // Add pending invitations (excluding declined)
+        for invitation in invitations where invitation.status == .pending {
+            // Check if this user is not already a participant
+            if !(room?.participants.contains { $0.userId == invitation.toUserId } ?? false) {
+                members.append(InvitedMember(
+                    userId: invitation.toUserId,
+                    userName: invitation.toUserName,
+                    status: .pending,
+                    isOwner: false
+                ))
+            }
+        }
+        
+
+        
+        return members
+    }
+    
+    // Helper function to get owner's display name (with fallback)
+    private func getOwnerDisplayName(ownerId: String, ownerInParticipants: RoomParticipant?) -> String {
+        // If owner is in participants list, use their display name
+        if let ownerParticipant = ownerInParticipants, let displayName = ownerParticipant.displayName, !displayName.isEmpty {
+            return displayName
+        }
+        
+        // If current user is the owner, use their profile name
+        if ownerId == AuthManager.shared.userProfile?.id {
+            return AuthManager.shared.userProfile?.displayName ?? "You"
+        }
+        
+        // Fallback to a generic name if no display name available
+        return "Room Owner"
+    }
+    
+    // Helper function to get participant's display name (with fallback)
+    private func getParticipantDisplayName(participant: RoomParticipant) -> String {
+        // If display name is available, use it
+        if let displayName = participant.displayName, !displayName.isEmpty {
+            return displayName
+        }
+        
+        // If current user is the participant, use their profile name
+        if participant.userId == AuthManager.shared.userProfile?.id {
+            return AuthManager.shared.userProfile?.displayName ?? "You"
+        }
+        
+        // Fallback to a generic name if no display name available
+        return "User \(String(participant.userId.prefix(8)))"
+    }
+    
     func fetchRoomDetails(roomId: String, jwt: String) async {
         isLoading = true
         self.error = nil
         
         do {
             room = try await roomService.fetchRoomDetails(roomId: roomId, jwt: jwt)
+            
+
+            
+            // Also fetch invitations for this room
+            await fetchRoomInvitations(roomId: roomId, jwt: jwt)
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Network error occurred"
         } catch let error {
@@ -108,6 +193,18 @@ class RoomDetailViewModel: ObservableObject {
         }
     }
     
+    func fetchRoomInvitations(roomId: String, jwt: String) async {
+        do {
+            invitations = try await roomService.fetchRoomInvitations(roomId: roomId, jwt: jwt)
+            
+
+        } catch {
+            // Don't show error for invitations, just log it
+            print("Failed to fetch room invitations: \(error)")
+            invitations = []
+        }
+    }
+    
     // MARK: - WebSocket Observers
     
     var webSocketManagerInstance: RoomWebSocketManager {
@@ -154,10 +251,23 @@ class RoomDetailViewModel: ObservableObject {
         
         if let date = formatter.date(from: dateString) {
             let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .medium
-            displayFormatter.timeStyle = .short
+            displayFormatter.dateFormat = "dd MMM yyyy"
+            displayFormatter.locale = Locale(identifier: "en_US")
             return displayFormatter.string(from: date)
         }
+        
+        // Fallback: try parsing with a more flexible approach
+        let inputFormatter = DateFormatter()
+        inputFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+        inputFormatter.locale = Locale(identifier: "en_US")
+        
+        if let date = inputFormatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "dd MMM yyyy"
+            displayFormatter.locale = Locale(identifier: "en_US")
+            return displayFormatter.string(from: date)
+        }
+        
         return dateString
     }
     
