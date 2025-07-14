@@ -7,7 +7,10 @@ struct ProfileView: View {
     @State private var navigateToAddReview = false
     @State private var selectedReview: Review? = nil
     @State private var showWatchlist = false
+    @State private var navigateToSettings = false
     @StateObject private var friendVM = ProfileFriendViewModel()
+    @State private var collectionsData: CollectionsResponse? = nil
+    @State private var isLoadingCollections = false
     // Replace with the actual userId being viewed (for now, use AuthManager.shared.userProfile?.id for own profile)
     var viewedUserId: String? { viewModel.userProfile?.id }
     var isOwnProfile: Bool { viewedUserId == AuthManager.shared.userProfile?.id }
@@ -25,6 +28,7 @@ struct ProfileView: View {
                         statsCard
                         actionButtons
                         reviewsGallery
+                        collectionsSection
                         // reviewsList
                         logoutButton
                         NavigationLink(destination: AddReviewView(onReviewAdded: {
@@ -41,15 +45,25 @@ struct ProfileView: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        Task {
-                            await viewModel.fetchProfile()
-                        }
+                        navigateToSettings = true
                     }) {
-                        Image(systemName: "arrow.clockwise")
-                            .resizable()
+                        Image(systemName: "gearshape")
                             .foregroundColor(.white)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack {
+                        Button(action: {
+                            Task {
+                                await viewModel.fetchProfile()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .resizable()
+                                .foregroundColor(.white)
+                        }
                     }
                 }
             }
@@ -66,8 +80,12 @@ struct ProfileView: View {
             .sheet(isPresented: $showWatchlist) {
                 WatchlistView()
             }
+            .navigationDestination(isPresented: $navigateToSettings) {
+                SettingsView()
+            }
             .task {
                 await viewModel.fetchProfile()
+                await fetchCollections()
                 if AuthManager.shared.isAuthenticated {
                     try? await AuthManager.shared.refreshUserProfile()
                 }
@@ -273,6 +291,91 @@ struct ProfileView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
         .padding(.bottom, 32)
+    }
+    
+    // --- COLLECTIONS SECTION ---
+    private var collectionsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Your Collections")
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding(.leading, 16)
+            
+            if isLoadingCollections {
+                HStack {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(1.5)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else if let collections = collectionsData?.collections, !collections.isEmpty {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 24) {
+                        ForEach(collections, id: \.collectionId) { collection in
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Collection header with review count
+                                HStack {
+                                    Text(collection.name)
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                    Text("(\(collection.reviewCount))")
+                                        .font(.subheadline)
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                }
+                                .padding(.leading, 16)
+                                
+                                // Horizontal scroll of reviews in this collection
+                                if !collection.reviews.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 24) {
+                                            ForEach(collection.reviews, id: \.self) { review in
+                                                GalleryReviewCard(
+                                                    review: review,
+                                                    onOpen: { selectedReview = review }
+                                                )
+                                                .scrollTargetLayout()
+                                            }
+                                        }
+                                        .padding(.horizontal, 16)
+                                    }
+                                    .scrollTargetBehavior(.viewAligned)
+                                } else {
+                                    Text("No reviews in this collection yet")
+                                        .foregroundColor(.gray)
+                                        .padding(.leading, 16)
+                                        .padding(.top, 8)
+                                }
+                            }
+                        }
+                    }
+                    .scrollTargetLayout()
+                    .padding(.vertical, 16)
+                }
+                .scrollTargetBehavior(.viewAligned)
+            } else {
+                Text("No collections yet.")
+                    .foregroundColor(Color(hex: "393B3D"))
+                    .padding(.top, 8)
+                    .padding(.leading, 16)
+            }
+        }
+    }
+    
+    private func fetchCollections() async {
+        isLoadingCollections = true
+        
+        do {
+            let response = try await NetworkService.shared.fetchUserCollectionsWithReviews()
+            await MainActor.run {
+                collectionsData = response
+            }
+        } catch {
+            print("Error fetching collections: \(error)")
+        }
+        
+        isLoadingCollections = false
     }
     
     private func statView(title: String, value: String) -> some View {

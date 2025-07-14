@@ -61,32 +61,42 @@ struct FriendsFeedView: View {
                                     .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                             }
                             
-                            // Friends horizontal scroll
-                            if !friends.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 10) {
-                                        ForEach(friends, id: \.userId) { friend in
-                                            Button(action: {
-                                                selectFriend(friend)
-                                            }) {
-                                                HStack {
-                                                    Text(friend.displayName ?? "Unknown")
-                                                        .foregroundColor(.white)
-                                                        .fontWeight(.medium)
+                            // Friends horizontal scroll with search button
+                            HStack(spacing: 12) {
+                                Button(action: { navigateToUserSearch = true }) {
+                                    Image(systemName: "magnifyingglass")
+                                        .foregroundColor(Color.white)
+                                        .font(.title3)
+                                        .frame(width: 32, height: 32)
+                                        // .background(Color.white.opacity(0.1))
+                                        // .clipShape(Circle())
+                                }
+                                
+                                if !friends.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 10) {
+                                            ForEach(friends, id: \.userId) { friend in
+                                                Button(action: {
+                                                    selectFriend(friend)
+                                                }) {
+                                                    HStack {
+                                                        Text(friend.displayName ?? "Unknown")
+                                                            .foregroundColor(.white)
+                                                            .fontWeight(.medium)
+                                                    }
+                                                    .padding(.vertical, 8)
+                                                    .padding(.horizontal, 14)
+                                                    .background(selectedFriend?.userId == friend.userId ? preferredColor.opacity(0.18) : Color.clear)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16)
+                                                            .stroke(preferredColor.opacity(0.5), lineWidth: 1)
+                                                    )
+                                                    .cornerRadius(16)
                                                 }
-                                                .padding(.vertical, 8)
-                                                .padding(.horizontal, 14)
-                                                .background(selectedFriend?.userId == friend.userId ? preferredColor.opacity(0.18) : Color.clear)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 16)
-                                                        .stroke(preferredColor.opacity(0.5), lineWidth: 1)
-                                                )
-                                                .cornerRadius(16)
+                                                .buttonStyle(.plain)
                                             }
-                                            .buttonStyle(.plain)
                                         }
                                     }
-                                    // .padding(.horizontal, 16)
                                 }
                             }
                         }
@@ -188,35 +198,29 @@ struct FriendsFeedView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { navigateToUserSearch = true }) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.white)
+                    Button(action: { navigateToFriendRequests = true }) {
+                        ZStack {
+                            Image(systemName: "bell")
+                                .foregroundColor(.white)
+                            if incomingRequestsCount > 0 {
+                                Text("\(incomingRequestsCount)")
+                                    .font(.caption2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.black)
+                                    .padding(4)
+                                    .background(Color.white)
+                                    .clipShape(Circle())
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack {
-                        Button(action: { 
-                            Task { await loadFriendsFeed() }
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.white)
-                        }
-                    Button(action: { navigateToFriendRequests = true }) {
-                            ZStack {
-                        Image(systemName: "bell")
-                                    .foregroundColor(.white)
-                                if incomingRequestsCount > 0 {
-                                    Text("\(incomingRequestsCount)")
-                                        .font(.caption2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.black)
-                                        .padding(4)
-                                        .background(Color.white)
-                                        .clipShape(Circle())
-                                        .offset(x: 8, y: -8)
-                                }
-                            }
-                        }
+                    Button(action: { 
+                        Task { await loadFriendsFeed() }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.white)
                     }
                 }
             }

@@ -1,14 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from typing import List, Optional
 from app.services.room_service import RoomService
+from app.crud.friend_crud import FriendCRUD
+from app.crud.user_crud import UserCRUD
 from app.schemas.room import (
     RoomCreate, RoomUpdate, RoomResponse, RoomListResponse, 
-    RoomRecommendationResponse, RoomParticipant
+    RoomRecommendationResponse, RoomParticipant, RoomInvitationCreate,
+    RoomInvitationResponse, RoomInvitation, RoomInvitationListResponse
 )
 from app.core.security import get_current_user
 
 router = APIRouter()
 room_service = RoomService()
+friend_crud = FriendCRUD()
+user_crud = UserCRUD()
 
 @router.post("/", response_model=RoomResponse)
 async def create_room(
@@ -276,3 +281,208 @@ async def start_voting_session(room_id: str, user=Depends(get_current_user)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to start voting session")
+
+@router.post("/{room_id}/invite", response_model=dict)
+async def invite_friends_to_room(
+    room_id: str = Path(..., description="ID of the room"),
+    invitation_data: RoomInvitationCreate = None,
+    user=Depends(get_current_user)
+):
+    """Invite friends to a room (only owner can invite)."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Check if user is room owner
+        room = await room_service.get_room_details(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        if room["owner_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Only room owner can invite friends")
+        
+        # Check if room is in active state (before recommendations)
+        if room["status"] != "active":
+            raise HTTPException(status_code=400, detail="Cannot invite friends after recommendations have been processed")
+        
+        # Validate that all friend_ids are actually friends
+        for friend_id in invitation_data.friend_ids:
+            are_friends = await friend_crud.are_friends(user_id, friend_id)
+            if not are_friends:
+                raise HTTPException(status_code=400, detail=f"User {friend_id} is not your friend")
+        
+        # Create invitations
+        created_invitations = []
+        for friend_id in invitation_data.friend_ids:
+            # Check if invitation already exists
+            exists = await room_service.room_crud.check_invitation_exists(room_id, user_id, friend_id)
+            if not exists:
+                invitation_id = await room_service.room_crud.create_room_invitation(room_id, user_id, friend_id)
+                created_invitations.append(invitation_id)
+        
+        return {
+            "message": f"Invitations sent to {len(created_invitations)} friends",
+            "created_invitations": len(created_invitations),
+            "total_requested": len(invitation_data.friend_ids)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to invite friends: {str(e)}")
+
+@router.get("/invitations", response_model=RoomInvitationListResponse)
+async def get_my_invitations(
+    user=Depends(get_current_user)
+):
+    """Get all room invitations for the current user."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        invitations = await room_service.room_crud.get_user_invitations(user_id)
+        
+        # Enrich invitations with room and user details
+        enriched_invitations = []
+        for invitation in invitations:
+            # Get room details
+            room = await room_service.get_room_details(invitation["room_id"])
+            if room:
+                # Get sender details
+                sender_profile = await user_crud.get_user_profile(invitation["from_user_id"])
+                
+                enriched_invitation = {
+                    **invitation,
+                    "room_name": room["name"],
+                    "room_description": room.get("description"),
+                    "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown"
+                }
+                enriched_invitations.append(RoomInvitation(**enriched_invitation))
+        
+        return RoomInvitationListResponse(
+            invitations=enriched_invitations,
+            total_count=len(enriched_invitations)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get invitations: {str(e)}")
+
+@router.put("/invitations/{invitation_id}")
+async def respond_to_invitation(
+    invitation_id: str = Path(..., description="ID of the invitation"),
+    response: RoomInvitationResponse = None,
+    user=Depends(get_current_user)
+):
+    """Accept or decline a room invitation."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Get invitation to verify it's for the current user
+        invitations = await room_service.room_crud.get_user_invitations(user_id)
+        target_invitation = None
+        
+        for inv in invitations:
+            if inv["invitation_id"] == invitation_id:
+                target_invitation = inv
+                break
+        
+        if not target_invitation:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        
+        # Check if invitation is still pending
+        if target_invitation["status"] != "pending":
+            raise HTTPException(status_code=400, detail="Invitation has already been responded to")
+        
+        # Respond to invitation
+        success = await room_service.room_crud.respond_to_invitation(invitation_id, response.action)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to respond to invitation")
+        
+        action_text = "accepted" if response.action == "accept" else "declined"
+        return {"message": f"Invitation {action_text} successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to respond to invitation: {str(e)}")
+
+@router.get("/{room_id}/invitations", response_model=RoomInvitationListResponse)
+async def get_room_invitations(
+    room_id: str = Path(..., description="ID of the room"),
+    user=Depends(get_current_user)
+):
+    """Get all invitations for a specific room (only owner can view)."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Check if user is room owner
+        room = await room_service.get_room_details(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        if room["owner_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Only room owner can view invitations")
+        
+        invitations = await room_service.room_crud.get_room_invitations(room_id)
+        
+        # Enrich invitations with user details
+        enriched_invitations = []
+        for invitation in invitations:
+            # Get sender and receiver details
+            sender_profile = await user_crud.get_user_profile(invitation["from_user_id"])
+            receiver_profile = await user_crud.get_user_profile(invitation["to_user_id"])
+            
+            enriched_invitation = {
+                **invitation,
+                "room_name": room["name"],
+                "room_description": room.get("description"),
+                "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown",
+                "to_user_name": receiver_profile.get("display_name", "Unknown") if receiver_profile else "Unknown"
+            }
+            enriched_invitations.append(RoomInvitation(**enriched_invitation))
+        
+        return RoomInvitationListResponse(
+            invitations=enriched_invitations,
+            total_count=len(enriched_invitations)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get room invitations: {str(e)}")
+
+@router.delete("/{room_id}/members/{member_id}")
+async def remove_room_member(
+    room_id: str = Path(..., description="ID of the room"),
+    member_id: str = Path(..., description="ID of the member to remove"),
+    user=Depends(get_current_user)
+):
+    """Remove a member from a room (only owner can do this)."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        # Check if user is room owner
+        room = await room_service.get_room_details(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        if room["owner_id"] != user_id:
+            raise HTTPException(status_code=403, detail="Only room owner can remove members")
+        
+        # Check if room is in active state (before recommendations)
+        if room["status"] != "active":
+            raise HTTPException(status_code=400, detail="Cannot remove members after recommendations have been processed")
+        
+        # Check if trying to remove owner
+        if member_id == user_id:
+            raise HTTPException(status_code=400, detail="Cannot remove yourself from the room")
+        
+        # Remove member
+        success = await room_service.room_crud.remove_room_member(room_id, member_id, user_id)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to remove member")
+        
+        return {"message": "Member removed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove member: {str(e)}")

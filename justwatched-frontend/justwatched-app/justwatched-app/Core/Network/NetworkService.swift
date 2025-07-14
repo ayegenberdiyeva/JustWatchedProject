@@ -382,6 +382,23 @@ class NetworkService {
         let decoded = try JSONDecoder().decode(CollectionResponse.self, from: data)
         return decoded.collections
     }
+    
+    func fetchUserCollectionsWithReviews(includePrivate: Bool = true) async throws -> CollectionsResponse {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        var urlComponents = URLComponents(string: baseURL + "/collections/me/reviews")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "include_private", value: includePrivate ? "true" : "false")
+        ]
+        var request = URLRequest(url: urlComponents.url!)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(CollectionsResponse.self, from: data)
+    }
 
     func createCollection(name: String, description: String?, visibility: String) async throws -> Collection {
         guard let token = authManager.jwt else { throw NetworkError.invalidURL }

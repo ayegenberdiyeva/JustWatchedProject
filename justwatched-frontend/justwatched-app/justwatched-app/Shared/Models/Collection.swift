@@ -30,4 +30,16 @@ struct CollectionResponse: Codable {
         case collections
         case totalCount = "total_count"
     }
+}
+
+struct CollectionsResponse: Codable {
+    let collections: [CollectionWithReviews]
+    let totalCollections: Int
+    let totalReviews: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case collections
+        case totalCollections = "total_collections"
+        case totalReviews = "total_reviews"
+    }
 } 

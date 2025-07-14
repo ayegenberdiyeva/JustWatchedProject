@@ -9,6 +9,11 @@ class RoomStatus(str, Enum):
     COMPLETED = "completed"
     INACTIVE = "inactive"
 
+class InvitationStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
 class RoomCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
@@ -18,6 +23,28 @@ class RoomUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
     max_participants: Optional[int] = Field(None, ge=2, le=50)
+
+class RoomInvitationCreate(BaseModel):
+    friend_ids: List[str] = Field(..., min_items=1, max_items=20)
+
+class RoomInvitationResponse(BaseModel):
+    action: str = Field(..., regex="^(accept|decline)$")
+
+class RoomInvitation(BaseModel):
+    invitation_id: str
+    room_id: str
+    room_name: str
+    room_description: Optional[str] = None
+    from_user_id: str
+    from_user_name: str
+    to_user_id: str
+    status: InvitationStatus
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+
+class RoomInvitationListResponse(BaseModel):
+    invitations: List[RoomInvitation]
+    total_count: int
 
 class RoomParticipant(BaseModel):
     user_id: str

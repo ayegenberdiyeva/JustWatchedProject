@@ -1,7 +1,8 @@
-from app.core.firestore import get_firestore_client
+from app.core.firestore import get_firestore_client, run_in_threadpool
 from datetime import datetime
 import uuid
 from typing import List, Dict, Any, Optional
+from app.schemas.room import RoomStatus, InvitationStatus
 
 class RoomCRUD:
     def __init__(self):
@@ -9,6 +10,7 @@ class RoomCRUD:
         self.rooms_collection = self.db.collection('rooms')
         self.participants_collection = self.db.collection('room_participants')
         self.recommendations_collection = self.db.collection('room_recommendations')
+        self.room_invitations_col = self.db.collection("room_invitations")
 
     async def create_room(self, room_data: dict, owner_id: str) -> dict:
         """Create a new room."""
@@ -218,3 +220,123 @@ class RoomCRUD:
         except Exception as e:
             print(f"Error getting recommendations for room {room_id}: {e}")
             return None 
+
+    async def create_room_invitation(self, room_id: str, from_user_id: str, to_user_id: str) -> str:
+        """Create a room invitation."""
+        invitation_id = str(uuid.uuid4())
+        now = datetime.utcnow()
+        
+        invitation = {
+            "invitation_id": invitation_id,
+            "room_id": room_id,
+            "from_user_id": from_user_id,
+            "to_user_id": to_user_id,
+            "status": InvitationStatus.PENDING,
+            "created_at": now,
+            "responded_at": None
+        }
+        
+        await run_in_threadpool(lambda: self.room_invitations_col.document(invitation_id).set(invitation))
+        return invitation_id
+
+    async def get_user_invitations(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all invitations for a user."""
+        def fetch():
+            invitations = self.room_invitations_col.where("to_user_id", "==", user_id).stream()
+            result = []
+            for doc in invitations:
+                if doc.exists:
+                    inv = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in inv and hasattr(inv["created_at"], "isoformat"):
+                        inv["created_at"] = inv["created_at"].isoformat()
+                    if "responded_at" in inv and inv["responded_at"] and hasattr(inv["responded_at"], "isoformat"):
+                        inv["responded_at"] = inv["responded_at"].isoformat()
+                    result.append(inv)
+            return result
+        
+        return await run_in_threadpool(fetch)
+
+    async def get_room_invitations(self, room_id: str) -> List[Dict[str, Any]]:
+        """Get all invitations for a specific room."""
+        def fetch():
+            invitations = self.room_invitations_col.where("room_id", "==", room_id).stream()
+            result = []
+            for doc in invitations:
+                if doc.exists:
+                    inv = doc.to_dict()
+                    # Convert datetime fields to ISO strings
+                    if "created_at" in inv and hasattr(inv["created_at"], "isoformat"):
+                        inv["created_at"] = inv["created_at"].isoformat()
+                    if "responded_at" in inv and inv["responded_at"] and hasattr(inv["responded_at"], "isoformat"):
+                        inv["responded_at"] = inv["responded_at"].isoformat()
+                    result.append(inv)
+            return result
+        
+        return await run_in_threadpool(fetch)
+
+    async def respond_to_invitation(self, invitation_id: str, action: str) -> bool:
+        """Accept or decline a room invitation."""
+        try:
+            # Get the invitation
+            doc = await run_in_threadpool(lambda: self.room_invitations_col.document(invitation_id).get())
+            if not doc.exists:
+                return False
+            
+            invitation = doc.to_dict()
+            now = datetime.utcnow()
+            
+            if action == "accept":
+                # Update invitation status
+                await run_in_threadpool(lambda: self.room_invitations_col.document(invitation_id).update({
+                    "status": InvitationStatus.ACCEPTED,
+                    "responded_at": now
+                }))
+                
+                # Add user to room participants
+                await self.add_participant(invitation["room_id"], invitation["to_user_id"])
+                
+            elif action == "decline":
+                # Update invitation status
+                await run_in_threadpool(lambda: self.room_invitations_col.document(invitation_id).update({
+                    "status": InvitationStatus.DECLINED,
+                    "responded_at": now
+                }))
+            
+            return True
+        except Exception:
+            return False
+
+    async def remove_room_member(self, room_id: str, user_id: str, owner_id: str) -> bool:
+        """Remove a member from a room (only owner can do this)."""
+        try:
+            # Check if user is owner
+            room = await self.get_room(room_id)
+            if not room or room["owner_id"] != owner_id:
+                return False
+            
+            # Remove from participants
+            success = await self.remove_participant(room_id, user_id)
+            if success:
+                # Update any pending invitations for this user to declined
+                def update_invitations():
+                    invitations = self.room_invitations_col.where("room_id", "==", room_id).where("to_user_id", "==", user_id).where("status", "==", InvitationStatus.PENDING).stream()
+                    for doc in invitations:
+                        doc.reference.update({
+                            "status": InvitationStatus.DECLINED,
+                            "responded_at": datetime.utcnow()
+                        })
+                
+                await run_in_threadpool(update_invitations)
+            
+            return success
+        except Exception:
+            return False
+
+    async def check_invitation_exists(self, room_id: str, from_user_id: str, to_user_id: str) -> bool:
+        """Check if an invitation already exists between users for a room."""
+        def check():
+            invitations = self.room_invitations_col.where("room_id", "==", room_id).where("from_user_id", "==", from_user_id).where("to_user_id", "==", to_user_id).limit(1).stream()
+            return next(invitations, None) is not None
+        
+        return await run_in_threadpool(check) 
