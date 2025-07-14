@@ -419,6 +419,76 @@ class NetworkService {
         }
         return try JSONDecoder().decode(Collection.self, from: data)
     }
+    
+    func updateCollection(collectionId: String, name: String?, description: String?, visibility: String?) async throws -> Collection {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/\(collectionId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let body: [String: Any?] = [
+            "name": name,
+            "description": description,
+            "visibility": visibility
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body.compactMapValues { $0 })
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return try JSONDecoder().decode(Collection.self, from: data)
+    }
+    
+    func deleteCollection(collectionId: String) async throws {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/\(collectionId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+    
+    func addReviewToCollection(collectionId: String, reviewId: String) async throws {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/\(collectionId)/reviews/\(reviewId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+    
+    func removeReviewFromCollection(collectionId: String, reviewId: String) async throws {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/\(collectionId)/reviews/\(reviewId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+    
+    func getCollectionReviews(collectionId: String) async throws -> CollectionReviewsResponse {
+        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
+        let url = URL(string: baseURL + "/collections/\(collectionId)/reviews")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(CollectionReviewsResponse.self, from: data)
+    }
 
     // MARK: - User Color
     struct UserColor: Codable, Hashable {

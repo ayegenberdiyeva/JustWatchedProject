@@ -447,6 +447,23 @@ struct ProfileView: View {
 // --- Review Detail Sheet ---
 struct ReviewDetailSheet: View {
     let review: Review
+    @State private var collections: [Collection] = []
+    @State private var selectedCollections: Set<String> = []
+    @State private var isLoading = false
+    @State private var error: String? = nil
+    @State private var showAddToCollection = false
+    
+    private var preferredColor: Color {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 16) {
             if let posterPath = review.posterPath {
@@ -458,28 +475,113 @@ struct ReviewDetailSheet: View {
                 .frame(height: 220)
                 .cornerRadius(16)
             }
-            Text(review.title)
-                .font(.title2).bold()
-                .foregroundColor(.primary)
-            Text("Rating: \(review.rating)/5")
-                .font(.headline)
-                .foregroundColor(.accentColor)
-            if let content = review.content, !content.isEmpty {
-                Text(content)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-            }
-            HStack {
-                Text("Watched: \(review.watchedDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("Added: \(review.createdAt?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            
+            VStack(spacing: 12) {
+                Text(review.title)
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                
+                HStack {
+                    Text("Rating:")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Text("\(review.rating)/5")
+                        .font(.headline)
+                        .foregroundColor(preferredColor)
+                }
+                
+                if let content = review.content, !content.isEmpty {
+                    Text(content)
+                        .font(.body)
+                        .foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Watched:")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(review.watchedDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing) {
+                        Text("Added:")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.7))
+                        Text(review.createdAt?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                }
+                .padding(.horizontal)
+                
+                // Collection Management
+                VStack(spacing: 8) {
+                    Button(action: {
+                        showAddToCollection = true
+                    }) {
+                        HStack {
+                            Image(systemName: "folder.badge.plus")
+                            Text("Add to Collection")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(preferredColor)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
             }
         }
         .padding()
+        .background(Color.black)
+        .sheet(isPresented: $showAddToCollection) {
+            AddToCollectionView(
+                review: review,
+                collections: collections,
+                selectedCollections: $selectedCollections,
+                preferredColor: preferredColor,
+                onComplete: { selectedCollectionIds in
+                    Task {
+                        await addReviewToCollections(selectedCollectionIds)
+                    }
+                    showAddToCollection = false
+                },
+                onCancel: {
+                    showAddToCollection = false
+                }
+            )
+        }
+        .task {
+            await loadCollections()
+        }
+    }
+    
+    private func loadCollections() async {
+        isLoading = true
+        do {
+            collections = try await NetworkService.shared.fetchUserCollections()
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
+    }
+    
+    private func addReviewToCollections(_ collectionIds: Set<String>) async {
+        for collectionId in collectionIds {
+            do {
+                try await NetworkService.shared.addReviewToCollection(collectionId: collectionId, reviewId: review.id)
+            } catch {
+                print("Error adding review to collection \(collectionId): \(error)")
+            }
+        }
     }
 }
 

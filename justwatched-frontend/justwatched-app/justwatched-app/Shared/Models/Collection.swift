@@ -9,6 +9,7 @@ struct Collection: Codable, Identifiable, Hashable {
     let createdAt: String
     let updatedAt: String
     let reviewCount: Int
+    let autoSelect: Bool
     
     enum CodingKeys: String, CodingKey {
         case id = "collection_id"
@@ -19,6 +20,7 @@ struct Collection: Codable, Identifiable, Hashable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case reviewCount = "review_count"
+        case autoSelect = "auto_select"
     }
 }
 
@@ -41,5 +43,48 @@ struct CollectionsResponse: Codable {
         case collections
         case totalCollections = "total_collections"
         case totalReviews = "total_reviews"
+    }
+}
+
+// MARK: - Collection Reviews Models
+struct CollectionReviewsResponse: Codable {
+    let collectionId: String
+    let collectionName: String
+    let reviews: [UserCollectionReview]
+    let totalCount: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case collectionId = "collection_id"
+        case collectionName = "collection_name"
+        case reviews
+        case totalCount = "total_count"
+    }
+}
+
+struct UserCollectionReview: Codable, Identifiable {
+    let reviewId: String
+    let mediaId: String
+    let mediaTitle: String
+    let mediaType: String
+    let posterPath: String?
+    let rating: Int?
+    let reviewText: String?
+    let status: String
+    let createdAt: String
+    let updatedAt: String
+    
+    var id: String { reviewId }
+    
+    enum CodingKeys: String, CodingKey {
+        case reviewId = "review_id"
+        case mediaId = "media_id"
+        case mediaTitle = "media_title"
+        case mediaType = "media_type"
+        case posterPath = "poster_path"
+        case rating
+        case reviewText = "review_text"
+        case status
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 } 

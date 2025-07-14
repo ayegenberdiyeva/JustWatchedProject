@@ -28,7 +28,7 @@ class RoomInvitationCreate(BaseModel):
     friend_ids: List[str] = Field(..., min_items=1, max_items=20)
 
 class RoomInvitationResponse(BaseModel):
-    action: str = Field(..., regex="^(accept|decline)$")
+    action: str = Field(..., pattern="^(accept|decline)$")
 
 class RoomInvitation(BaseModel):
     invitation_id: str

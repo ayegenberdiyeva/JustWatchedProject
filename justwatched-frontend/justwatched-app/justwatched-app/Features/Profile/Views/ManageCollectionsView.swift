@@ -6,6 +6,8 @@ struct ManageCollectionsView: View {
     @State private var isLoading = false
     @State private var error: String? = nil
     @State private var showAddCollection = false
+    @State private var showEditCollection = false
+    @State private var selectedCollection: Collection? = nil
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -84,7 +86,17 @@ struct ManageCollectionsView: View {
                         ScrollView {
                             LazyVStack(spacing: 12) {
                                 ForEach(collections) { collection in
-                                    CollectionRowView(collection: collection)
+                                    CollectionRowView(
+                                        collection: collection,
+                                        preferredColor: preferredColor,
+                                        onEdit: {
+                                            selectedCollection = collection
+                                            showEditCollection = true
+                                        },
+                                        onDelete: {
+                                            Task { await deleteCollection(collection) }
+                                        }
+                                    )
                                 }
                             }
                             .padding(.horizontal)
@@ -108,6 +120,25 @@ struct ManageCollectionsView: View {
                 },
                 onCancel: { showAddCollection = false }
             )
+        }
+        .sheet(isPresented: $showEditCollection) {
+            if let collection = selectedCollection {
+                EditCollectionView(
+                    collection: collection,
+                    preferredColor: preferredColor,
+                    onComplete: { name, description, visibility in
+                        Task {
+                            await updateCollection(collection, name: name, description: description, visibility: visibility)
+                            showEditCollection = false
+                            selectedCollection = nil
+                        }
+                    },
+                    onCancel: {
+                        showEditCollection = false
+                        selectedCollection = nil
+                    }
+                )
+            }
         }
         .task {
             await loadCollections()
@@ -135,23 +166,38 @@ struct ManageCollectionsView: View {
             print("Error creating collection: \(error)")
         }
     }
+    
+    private func updateCollection(_ collection: Collection, name: String, description: String, visibility: String) async {
+        do {
+            _ = try await NetworkService.shared.updateCollection(
+                collectionId: collection.id,
+                name: name,
+                description: description.isEmpty ? nil : description,
+                visibility: visibility
+            )
+            await loadCollections()
+        } catch {
+            print("Error updating collection: \(error)")
+        }
+    }
+    
+    private func deleteCollection(_ collection: Collection) async {
+        do {
+            try await NetworkService.shared.deleteCollection(collectionId: collection.id)
+            await loadCollections()
+        } catch {
+            print("Error deleting collection: \(error)")
+        }
+    }
 }
 
 // MARK: - Collection Row View
 struct CollectionRowView: View {
     let collection: Collection
+    let preferredColor: Color
+    let onEdit: () -> Void
+    let onDelete: () -> Void
     @State private var showDeleteAlert = false
-    
-    private var preferredColor: Color {
-        switch AuthManager.shared.userProfile?.color {
-        case "red": return .red
-        case "yellow": return .yellow
-        case "green": return .green
-        case "blue": return .blue
-        case "pink": return .pink
-        default: return .white
-        }
-    }
     
     var body: some View {
         HStack {
@@ -180,11 +226,18 @@ struct CollectionRowView: View {
             
             Spacer()
             
-            Button(action: {
-                showDeleteAlert = true
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+            HStack(spacing: 12) {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(preferredColor)
+                }
+                
+                Button(action: {
+                    showDeleteAlert = true
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
             }
         }
         .padding()
@@ -193,8 +246,7 @@ struct CollectionRowView: View {
         .alert("Delete Collection", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                // TODO: Implement delete collection functionality
-                print("Delete collection functionality to be implemented")
+                onDelete()
             }
         } message: {
             Text("Are you sure you want to delete '\(collection.name)'? This action cannot be undone.")
