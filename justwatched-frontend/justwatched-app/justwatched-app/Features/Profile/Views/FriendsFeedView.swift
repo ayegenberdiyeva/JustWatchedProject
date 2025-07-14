@@ -163,7 +163,8 @@ struct FriendsFeedView: View {
                             FriendReviewsView(
                                 friend: selectedFriend,
                                 friendData: friendData,
-                                isLoading: isLoadingFriendReviews
+                                isLoading: isLoadingFriendReviews,
+                                onRefresh: loadFriendsFeed
                             )
                         } else {
                             // Default view when no friend is selected
@@ -305,7 +306,10 @@ struct FriendReviewsView: View {
     let friend: UserProfile
     let friendData: FriendReviewsData
     let isLoading: Bool
+    let onRefresh: () async -> Void
     @State private var selectedReview: Review? = nil
+    @State private var showAddReview = false
+    @State private var selectedReviewForAdd: Review? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -358,9 +362,13 @@ struct FriendReviewsView: View {
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 24) {
                                         ForEach(collection.reviews, id: \.self) { review in
-                                            GalleryReviewCard(
+                                            FriendReviewCard(
                                                 review: review,
-                                                onOpen: { selectedReview = review }
+                                                onOpen: { selectedReview = review },
+                                                onAddReview: {
+                                                    selectedReviewForAdd = review
+                                                    showAddReview = true
+                                                }
                                             )
                                             .scrollTargetLayout()
                                         }
@@ -379,6 +387,229 @@ struct FriendReviewsView: View {
         }
         .sheet(item: $selectedReview) { review in
             ReviewDetailSheet(review: review)
+        }
+        .sheet(isPresented: $showAddReview) {
+            if let review = selectedReviewForAdd {
+                AddReviewView(
+                    selectedMovie: review.mediaType == "movie" ? createMovieFromReview(review) : nil,
+                    selectedTVShow: review.mediaType == "tv" ? createTVShowFromReview(review) : nil,
+                    onReviewAdded: {
+                        // Refresh the friends feed after adding a review
+                        Task { await onRefresh() }
+                    }
+                )
+            }
+        }
+    }
+    
+    private func createMovieFromReview(_ review: Review) -> Movie {
+        let movieId = Int(review.mediaId) ?? 0
+        let movieTitle = review.title
+        let moviePosterPath = review.posterPath
+        let movieOverview = review.content ?? ""
+        
+        return Movie(
+            id: movieId,
+            title: movieTitle,
+            posterPath: moviePosterPath,
+            releaseDate: review.watchedDate?.formatted(date: .abbreviated, time: .omitted),
+            overview: movieOverview
+        )
+    }
+    
+    private func createTVShowFromReview(_ review: Review) -> TVShow {
+        let showId = Int(review.mediaId) ?? 0
+        let showName = review.title
+        let showPosterPath = review.posterPath
+        let showOverview = review.content ?? ""
+        
+        return TVShow(
+            id: showId,
+            name: showName,
+            posterPath: showPosterPath,
+            firstAirDate: review.watchedDate?.formatted(date: .abbreviated, time: .omitted),
+            overview: showOverview
+        )
+    }
+}
+
+// MARK: - FriendReviewCard Component
+struct FriendReviewCard: View {
+    let review: Review
+    let onOpen: () -> Void
+    let onAddReview: () -> Void
+    @State private var showFullReview = false
+    
+    private let preferredColor: Color = {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
+    }()
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Poster
+            if let posterPath = review.posterPath {
+                AsyncImage(url: posterPath.posterURL(size: "w500")) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(width: 300, height: 400)
+                .clipped()
+                .cornerRadius(24)
+            }
+            // --- LIQUID GLASS EFFECT UNDER OVERLAY ---
+            VStack {
+                Spacer()
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                    .frame(height: 220)
+                    .frame(width: 300)
+            }
+            .frame(width: 300, height: 400)
+            .allowsHitTesting(false)
+            // --- OVERLAY CARD ---
+            VStack(alignment: .leading, spacing: 6) {
+                Text(review.title)
+                    .font(.title2).bold()
+                    .foregroundColor(.white)
+                    .shadow(radius: 2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let content = review.content, !content.isEmpty {
+                    Text(content)
+                        .font(.footnote)
+                        .foregroundColor(.white)
+                        .shadow(radius: 1)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Button("Read more") {
+                        showFullReview = true
+                    }
+                    .font(.caption.bold())
+                    .foregroundColor(Color(hex: "393B3D"))
+                    .padding(.top, 0)
+                    .padding(.bottom, 2)
+                } else {
+                    Text("")
+                        .font(.footnote)
+                        .foregroundColor(.white)
+                        .shadow(radius: 1)
+                        .lineLimit(1)
+                    // Placeholder for alignment
+                    Text("Read more")
+                        .font(.caption.bold())
+                        .foregroundColor(Color.clear)
+                        .padding(.top, 0)
+                        .padding(.bottom, 2)
+                }
+                HStack(spacing: 6) {
+                    // VStack {
+                        // Text("Watched on")
+                        //     .font(.caption)
+                        //     .foregroundColor(.white.opacity(0.8))
+                    //     Text(review.watchedDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown")
+                    //         .font(.title3.bold())
+                    //         .foregroundColor(.white)
+                    // }
+                    // .frame(maxWidth: .infinity)
+                    // .padding(8)
+                    // .background(Color.black.opacity(0.3))
+                    // .cornerRadius(12)
+                    VStack {
+                        Text("Rating")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                        Text(String(format: "%.1f", Double(review.rating)))
+                            .font(.title3.bold())
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(12)
+                }
+                
+                // Action Buttons
+                HStack(spacing: 6) {
+                    Button(action: onAddReview) {
+                        VStack {
+                            Text("Review")
+                                .font(.caption)
+                                .foregroundColor(preferredColor)
+                            Image(systemName: "star.fill")
+                                .font(.title3.bold())
+                                .foregroundColor(preferredColor)
+                                .frame(height: 20)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(Color.black.opacity(0.3))
+                        .cornerRadius(12)
+                    }
+                    
+                    WatchlistButton(
+                        mediaId: review.mediaId,
+                        mediaType: review.mediaType,
+                        mediaTitle: review.title,
+                        posterPath: review.posterPath
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(20)
+            .frame(width: 300)
+            .background(
+                LinearGradient(gradient: Gradient(colors: [Color.black.opacity(0.7), Color.black.opacity(0.3), Color.clear]), startPoint: .bottom, endPoint: .top)
+                    .cornerRadius(24)
+            )
+        }
+        .frame(width: 300, height: 400)
+        .background(Color.white.opacity(0.01))
+        .cornerRadius(24)
+        .padding(.vertical, 8)
+        .sheet(isPresented: $showFullReview) {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 24) {
+                    Text("Full Review")
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                        .padding(.top)
+                    
+                    HStack {
+                        Text(review.title)
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("\(review.rating)/5")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal)
+                    
+                    ScrollView {
+                        Text(review.content ?? "")
+                            .font(.body)
+                            .foregroundColor(.white)
+                            .padding()
+                    }
+                    
+                    Button("Close") { showFullReview = false }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(12)
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 }
