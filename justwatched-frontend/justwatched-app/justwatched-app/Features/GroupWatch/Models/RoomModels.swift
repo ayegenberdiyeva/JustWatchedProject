@@ -280,4 +280,89 @@ struct WebSocketVotingResultMessage: Codable {
 struct WebSocketErrorMessage: Codable {
     let type: String
     let message: String
+}
+
+// MARK: - Room Invitation Models
+enum InvitationStatus: String, Codable, CaseIterable {
+    case pending = "pending"
+    case accepted = "accepted"
+    case declined = "declined"
+    
+    var displayName: String {
+        switch self {
+        case .pending: return "Pending"
+        case .accepted: return "Accepted"
+        case .declined: return "Declined"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .pending: return "yellow"
+        case .accepted: return "green"
+        case .declined: return "red"
+        }
+    }
+}
+
+struct RoomInvitation: Codable, Identifiable {
+    let invitationId: String
+    let roomId: String
+    let roomName: String
+    let roomDescription: String?
+    let fromUserId: String
+    let fromUserName: String
+    let toUserId: String
+    let status: InvitationStatus
+    let createdAt: String
+    let respondedAt: String?
+    
+    var id: String { invitationId }
+    
+    enum CodingKeys: String, CodingKey {
+        case invitationId = "invitation_id"
+        case roomId = "room_id"
+        case roomName = "room_name"
+        case roomDescription = "room_description"
+        case fromUserId = "from_user_id"
+        case fromUserName = "from_user_name"
+        case toUserId = "to_user_id"
+        case status
+        case createdAt = "created_at"
+        case respondedAt = "responded_at"
+    }
+}
+
+struct RoomInvitationCreate: Codable {
+    let friendIds: [String]
+    
+    enum CodingKeys: String, CodingKey {
+        case friendIds = "friend_ids"
+    }
+}
+
+struct RoomInvitationResponse: Codable {
+    let action: String // "accept" or "decline"
+}
+
+struct RoomInvitationListResponse: Codable {
+    let invitations: [RoomInvitation]
+    let totalCount: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case invitations
+        case totalCount = "total_count"
+    }
+}
+
+struct RoomInviteResponse: Codable {
+    let message: String
+    let createdInvitations: Int
+    let totalRequested: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case message
+        case createdInvitations = "created_invitations"
+        case totalRequested = "total_requested"
+    }
 } 

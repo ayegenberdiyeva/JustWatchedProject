@@ -4,6 +4,7 @@ struct RoomListView: View {
     @StateObject private var viewModel = RoomListViewModel()
     @ObservedObject private var authManager = AuthManager.shared
     @State private var showCreateRoom = false
+    @State private var showInvitations = false
     
     var body: some View {
         NavigationStack {
@@ -66,13 +67,22 @@ struct RoomListView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        if authManager.isAuthenticated, let jwt = authManager.jwt {
-                            Task { await viewModel.fetchRooms(jwt: jwt) }
+                    HStack(spacing: 16) {
+                        Button(action: {
+                            showInvitations = true
+                        }) {
+                            Image(systemName: "envelope")
+                                .foregroundColor(.white)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.white)
+                        
+                        Button(action: {
+                            if authManager.isAuthenticated, let jwt = authManager.jwt {
+                                Task { await viewModel.fetchRooms(jwt: jwt) }
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.white)
+                        }
                     }
                 }
             }
@@ -102,6 +112,9 @@ struct RoomListView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showInvitations) {
+                RoomInvitationsView()
             }
 
         }

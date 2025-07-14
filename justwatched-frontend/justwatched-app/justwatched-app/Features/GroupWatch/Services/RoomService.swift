@@ -238,6 +238,124 @@ actor RoomService {
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
         }
     }
+    
+    // MARK: - Room Invitations
+    
+    func sendRoomInvitations(roomId: String, friendIds: [String], jwt: String) async throws -> RoomInviteResponse {
+        guard let url = URL(string: "\(baseURL)/rooms/\(roomId)/invite") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let invitationRequest = RoomInvitationCreate(friendIds: friendIds)
+        let encoder = JSONEncoder()
+        request.httpBody = try encoder.encode(invitationRequest)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(RoomInviteResponse.self, from: data)
+    }
+    
+    func fetchMyInvitations(jwt: String) async throws -> [RoomInvitation] {
+        guard let url = URL(string: "\(baseURL)/rooms/invitations") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
+        let invitationResponse = try JSONDecoder().decode(RoomInvitationListResponse.self, from: data)
+        return invitationResponse.invitations
+    }
+    
+    func respondToInvitation(invitationId: String, action: String, jwt: String) async throws {
+        guard let url = URL(string: "\(baseURL)/rooms/invitations/\(invitationId)") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let response = RoomInvitationResponse(action: action)
+        let encoder = JSONEncoder()
+        request.httpBody = try encoder.encode(response)
+        
+        let (_, httpResponse) = try await session.data(for: request)
+        
+        guard let httpResponse = httpResponse as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+    }
+    
+    func fetchRoomInvitations(roomId: String, jwt: String) async throws -> [RoomInvitation] {
+        guard let url = URL(string: "\(baseURL)/rooms/\(roomId)/invitations") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
+        let invitationResponse = try JSONDecoder().decode(RoomInvitationListResponse.self, from: data)
+        return invitationResponse.invitations
+    }
+    
+    func removeRoomMember(roomId: String, memberId: String, jwt: String) async throws {
+        guard let url = URL(string: "\(baseURL)/rooms/\(roomId)/members/\(memberId)") else {
+            throw NetworkError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        
+        let (_, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.requestFailed(statusCode: 500)
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+    }
 }
 
 // MARK: - WebSocket Manager

@@ -94,6 +94,7 @@ struct ManageCollectionsView: View {
                                             showEditCollection = true
                                         },
                                         onDelete: {
+                                            print("🗑️ onDelete callback triggered for collection: \(collection.name)")
                                             Task { await deleteCollection(collection) }
                                         }
                                     )
@@ -182,11 +183,17 @@ struct ManageCollectionsView: View {
     }
     
     private func deleteCollection(_ collection: Collection) async {
+        print("🗑️ Attempting to delete collection: \(collection.id) - \(collection.name)")
         do {
             try await NetworkService.shared.deleteCollection(collectionId: collection.id)
+            print("✅ Successfully deleted collection: \(collection.id)")
             await loadCollections()
         } catch {
-            print("Error deleting collection: \(error)")
+            print("❌ Error deleting collection \(collection.id): \(error)")
+            // Show error to user
+            await MainActor.run {
+                self.error = "Failed to delete collection: \(error.localizedDescription)"
+            }
         }
     }
 }
@@ -244,8 +251,11 @@ struct CollectionRowView: View {
         .background(Color(hex: "393B3D").opacity(0.3))
         .cornerRadius(16)
         .alert("Delete Collection", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
+            Button("Cancel", role: .cancel) { 
+                print("❌ Delete cancelled by user")
+            }
             Button("Delete", role: .destructive) {
+                print("🗑️ User confirmed delete for collection: \(collection.name)")
                 onDelete()
             }
         } message: {

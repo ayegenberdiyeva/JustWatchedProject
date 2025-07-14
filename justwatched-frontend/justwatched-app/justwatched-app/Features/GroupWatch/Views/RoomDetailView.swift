@@ -135,33 +135,65 @@ struct RoomDetailView: View {
         .padding(.horizontal)
     }
     
+    @State private var showInviteFriends = false
+    @State private var showInvitations = false
+    
     private func ownerActionButtons(room: Room) -> some View {
-        HStack(spacing: 12) {
-            if room.status == .active && !viewModel.recommendations.isEmpty {
-                Button("Start Voting") {
-                    if let jwt = authManager.jwt {
-                        Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if room.status == .active && !viewModel.recommendations.isEmpty {
+                    Button("Start Voting") {
+                        if let jwt = authManager.jwt {
+                            Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(preferredColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(preferredColor)
-                .foregroundColor(.white)
-                .cornerRadius(12)
+                
+                if room.status == .active && viewModel.recommendations.isEmpty {
+                    Button("Generate Recommendations") {
+                        if let jwt = authManager.jwt {
+                            Task { await viewModel.processRecommendations(roomId: roomId, jwt: jwt) }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(preferredColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
             }
             
-            if room.status == .active && viewModel.recommendations.isEmpty {
-                Button("Generate Recommendations") {
-                    if let jwt = authManager.jwt {
-                        Task { await viewModel.processRecommendations(roomId: roomId, jwt: jwt) }
-                    }
+            // Invitation Management Buttons
+            HStack(spacing: 12) {
+                Button("Invite Friends") {
+                    showInviteFriends = true
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(preferredColor)
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(12)
+                
+                Button("View Invitations") {
+                    showInvitations = true
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.orange)
                 .foregroundColor(.white)
                 .cornerRadius(12)
             }
+        }
+        .sheet(isPresented: $showInviteFriends) {
+            InviteFriendsView(roomId: roomId, roomName: room.name)
+        }
+        .sheet(isPresented: $showInvitations) {
+            RoomInvitationsManagementView(roomId: roomId, roomName: room.name)
         }
     }
     
@@ -182,6 +214,9 @@ struct RoomDetailView: View {
         }
     }
     
+    @State private var showRemoveMemberAlert = false
+    @State private var memberToRemove: RoomParticipant?
+    
     private func participantsSection(room: Room) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Participants")
@@ -192,11 +227,40 @@ struct RoomDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(room.participants) { participant in
-                        ParticipantCard(participant: participant)
+                        ParticipantCard(
+                            participant: participant,
+                            isOwner: room.ownerId == authManager.userProfile?.id,
+                            onRemove: {
+                                memberToRemove = participant
+                                showRemoveMemberAlert = true
+                            }
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
             }
+        }
+        .alert("Remove Member", isPresented: $showRemoveMemberAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) {
+                if let member = memberToRemove, let jwt = authManager.jwt {
+                    Task { await removeMember(roomId: room.roomId, memberId: member.userId, jwt: jwt) }
+                }
+            }
+        } message: {
+            if let member = memberToRemove {
+                Text("Are you sure you want to remove \(member.displayName ?? "this member") from the room?")
+            }
+        }
+    }
+    
+    private func removeMember(roomId: String, memberId: String, jwt: String) async {
+        do {
+            try await RoomService().removeRoomMember(roomId: roomId, memberId: memberId, jwt: jwt)
+            // Refresh room details after removing member
+            await viewModel.fetchRoomDetails(roomId: roomId, jwt: jwt)
+        } catch {
+            print("Error removing member: \(error)")
         }
     }
     
@@ -301,6 +365,8 @@ struct RoomDetailView: View {
 
 struct ParticipantCard: View {
     let participant: RoomParticipant
+    let isOwner: Bool
+    let onRemove: (() -> Void)?
     
     var body: some View {
         VStack(spacing: 8) {
@@ -324,6 +390,15 @@ struct ParticipantCard: View {
                 .font(.caption)
                 .foregroundColor(.white)
                 .lineLimit(1)
+            
+            // Remove button for room owners (only for non-owners)
+            if isOwner && !participant.isOwner, let onRemove = onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
         }
         .frame(width: 80)
     }

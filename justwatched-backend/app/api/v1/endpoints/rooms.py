@@ -46,6 +46,41 @@ async def get_user_rooms(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user rooms: {str(e)}")
 
+@router.get("/invitations", response_model=RoomInvitationListResponse)
+async def get_my_invitations(
+    user=Depends(get_current_user)
+):
+    """Get all room invitations for the current user."""
+    user_id = user["sub"] if isinstance(user, dict) else user.sub
+    
+    try:
+        invitations = await room_service.room_crud.get_user_invitations(user_id)
+        
+        # Enrich invitations with room and user details
+        enriched_invitations = []
+        for invitation in invitations:
+            # Get room details
+            room = await room_service.get_room_details(invitation["room_id"])
+            if room:
+                # Get sender details
+                sender_profile = await user_crud.get_user_profile(invitation["from_user_id"])
+                
+                enriched_invitation = {
+                    **invitation,
+                    "room_name": room["name"],
+                    "room_description": room.get("description"),
+                    "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown"
+                }
+                enriched_invitations.append(RoomInvitation(**enriched_invitation))
+        
+        return RoomInvitationListResponse(
+            invitations=enriched_invitations,
+            total_count=len(enriched_invitations)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get invitations: {str(e)}")
+
 @router.get("/{room_id}", response_model=RoomResponse)
 async def get_room(
     room_id: str = Path(..., description="ID of the room"),
@@ -329,41 +364,6 @@ async def invite_friends_to_room(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to invite friends: {str(e)}")
-
-@router.get("/invitations", response_model=RoomInvitationListResponse)
-async def get_my_invitations(
-    user=Depends(get_current_user)
-):
-    """Get all room invitations for the current user."""
-    user_id = user["sub"] if isinstance(user, dict) else user.sub
-    
-    try:
-        invitations = await room_service.room_crud.get_user_invitations(user_id)
-        
-        # Enrich invitations with room and user details
-        enriched_invitations = []
-        for invitation in invitations:
-            # Get room details
-            room = await room_service.get_room_details(invitation["room_id"])
-            if room:
-                # Get sender details
-                sender_profile = await user_crud.get_user_profile(invitation["from_user_id"])
-                
-                enriched_invitation = {
-                    **invitation,
-                    "room_name": room["name"],
-                    "room_description": room.get("description"),
-                    "from_user_name": sender_profile.get("display_name", "Unknown") if sender_profile else "Unknown"
-                }
-                enriched_invitations.append(RoomInvitation(**enriched_invitation))
-        
-        return RoomInvitationListResponse(
-            invitations=enriched_invitations,
-            total_count=len(enriched_invitations)
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get invitations: {str(e)}")
 
 @router.put("/invitations/{invitation_id}")
 async def respond_to_invitation(

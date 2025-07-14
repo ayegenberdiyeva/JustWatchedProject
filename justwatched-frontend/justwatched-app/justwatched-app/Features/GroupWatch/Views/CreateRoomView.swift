@@ -7,6 +7,7 @@ struct CreateRoomView: View {
     @State private var maxParticipants = 10
     @State private var isLoading = false
     @State private var error: String?
+    @State private var gradientAngle: Double = 0.0
     
     let onComplete: (String, String?, Int) -> Void
     
@@ -52,36 +53,58 @@ struct CreateRoomView: View {
                     Text(error)
                 }
             }
+            .onAppear {
+                startGradientAnimation()
+            }
+            .onDisappear {
+                stopGradientAnimation()
+            }
         }
     }
     
     private var headerSection: some View {
         ZStack {
             let colorValue = AuthManager.shared.userProfile?.color ?? "red"
-            AnimatedPaletteGradientBackground(paletteName: colorValue)
-                .cornerRadius(32)
-                .overlay(Color.black.opacity(0.5).cornerRadius(32))
+            // AnimatedPaletteGradientBackground(paletteName: colorValue)
+            //     .cornerRadius(32)
+            //     .overlay(Color.black.opacity(0.5).cornerRadius(32))
             
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Create ")
                         .font(.title2)
-                        .foregroundColor(.white)
+                        .foregroundStyle(
+                            AngularGradient(
+                                gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
+                                center: .topTrailing,
+                                startAngle: .degrees(gradientAngle),
+                                endAngle: .degrees(gradientAngle + 360)
+                            )
+                        )
+                        .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                     Text("Room")
                         .font(.title2.bold())
-                        .foregroundColor(.white)
+                        .foregroundStyle(
+                            AngularGradient(
+                                gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
+                                center: .topTrailing,
+                                startAngle: .degrees(gradientAngle),
+                                endAngle: .degrees(gradientAngle + 360)
+                            )
+                        )
+                        .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                 }
                 Text("Set up a new group watch session")
                     .font(.footnote)
                     .foregroundColor(.white)
                     .lineLimit(2)
             }
-            .padding(28)
+            // .padding(28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity)
-        .cornerRadius(32)
-        .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 6)
+        // .cornerRadius(32)
+        // .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 6)
         .padding(.horizontal)
     }
     
@@ -214,6 +237,16 @@ struct CreateRoomView: View {
         
         onComplete(trimmedName, finalDescription, maxParticipants)
         dismiss()
+    }
+    
+    private func startGradientAnimation() {
+        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+            gradientAngle += 1.0
+        }
+    }
+    
+    private func stopGradientAnimation() {
+        gradientAngle = 0.0
     }
 }
 

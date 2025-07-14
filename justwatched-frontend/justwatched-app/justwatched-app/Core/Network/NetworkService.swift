@@ -443,12 +443,32 @@ class NetworkService {
     func deleteCollection(collectionId: String) async throws {
         guard let token = authManager.jwt else { throw NetworkError.invalidURL }
         let url = URL(string: baseURL + "/collections/\(collectionId)")!
+        print("🗑️ DELETE request URL: \(url)")
+        print("🗑️ Collection ID: \(collectionId)")
+        print("🗑️ JWT Token: \(token.prefix(20))...")
+        
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        
+        print("🗑️ Sending DELETE request...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Invalid response type")
+            throw NetworkError.invalidResponse
+        }
+        
+        print("🗑️ Response status code: \(httpResponse.statusCode)")
+        
+        if httpResponse.statusCode == 200 {
+            print("✅ Collection deleted successfully")
+        } else {
+            print("❌ Delete failed with status code: \(httpResponse.statusCode)")
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("❌ Error response: \(errorString)")
+            }
+            throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
         }
     }
     
