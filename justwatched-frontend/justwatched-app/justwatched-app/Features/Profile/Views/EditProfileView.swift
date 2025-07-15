@@ -87,6 +87,7 @@ struct EditProfileView: View {
                     dismiss()
                 }
             }
+            .toolbar(.hidden, for: .tabBar)
         }
     }
 

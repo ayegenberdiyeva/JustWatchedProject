@@ -118,6 +118,7 @@ struct FilmDetailView: View {
                     )
                 }
             }
+            .toolbar(.hidden, for: .tabBar)
         }
     }
 }

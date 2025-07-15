@@ -160,6 +160,7 @@ struct WatchlistView: View {
             .task {
                 await viewModel.fetchWatchlist()
             }
+            .toolbar(.hidden, for: .tabBar)
         }
     }
 }

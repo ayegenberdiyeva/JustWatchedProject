@@ -33,6 +33,7 @@ class UserCollectionReview(BaseModel):
     poster_path: Optional[str] = None
     rating: Optional[int] = None
     review_text: Optional[str] = None
+    watched_date: Optional[str] = None
     status: str
     created_at: str
     updated_at: str

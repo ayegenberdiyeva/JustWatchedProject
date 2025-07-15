@@ -32,7 +32,6 @@ actor WatchlistService {
             // Handle authentication errors by signing out
             await MainActor.run {
                 AuthManager.shared.signOut()
-                AppState.shared.isAuthenticated = false
             }
             throw WatchlistServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }

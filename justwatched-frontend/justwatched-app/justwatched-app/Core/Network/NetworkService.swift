@@ -64,15 +64,18 @@ class NetworkService {
         return try await URLSession.shared.data(for: request)
     }
     
+    // MARK: - Authentication Error Handling
+    private func handleAuthenticationError(_ response: URLResponse) async {
+        await AuthErrorHandler.shared.handleAuthenticationError(response)
+    }
+    
     func fetchProfile() async throws -> UserProfile {
         let (data, response) = try await authorizedRequest("/users/me")
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 || httpResponse.statusCode == 403 {
-                await MainActor.run {
-                    AuthManager.shared.signOut()
-                    AppState.shared.isAuthenticated = false
-                }
-            }
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
         return try JSONDecoder().decode(UserProfile.self, from: data)
@@ -87,6 +90,10 @@ class NetworkService {
         ]
         let jsonData = try JSONSerialization.data(withJSONObject: parameters.compactMapValues { $0 })
         let (_, response) = try await authorizedRequest("/users/me", method: "PATCH", body: jsonData)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -94,6 +101,10 @@ class NetworkService {
     
     func fetchUserReviews() async throws -> [Review] {
         let (data, response) = try await authorizedRequest("/reviews/users/me/reviews")
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -128,13 +139,21 @@ class NetworkService {
         
         let (_, response) = try await authorizedRequest("/reviews/", method: "POST", body: jsonData)
         
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, (httpResponse.statusCode == 200 || httpResponse.statusCode == 201) else {
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 403 {
-                await MainActor.run {
-                    AuthManager.shared.signOut()
-                    AppState.shared.isAuthenticated = false
-                }
-            }
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+    }
+    
+    func deleteReview(reviewId: String) async throws {
+        let (_, response) = try await authorizedRequest("/reviews/\(reviewId)", method: "DELETE")
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
     }
@@ -273,13 +292,11 @@ class NetworkService {
         request.httpMethod = "GET"
         request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 || httpResponse.statusCode == 403 {
-                await MainActor.run {
-                    AuthManager.shared.signOut()
-                    AppState.shared.isAuthenticated = false
-                }
-            }
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
         let profile = try JSONDecoder().decode(UserProfile.self, from: data)
@@ -354,6 +371,10 @@ class NetworkService {
 
     func deleteSearchHistoryEntry(id: String) async throws {
         let (_, response) = try await authorizedRequest("/search_history/\(id)", method: "DELETE")
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -361,6 +382,10 @@ class NetworkService {
 
     func clearSearchHistory() async throws {
         let (_, response) = try await authorizedRequest("/search_history", method: "DELETE")
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -708,5 +733,58 @@ class NetworkService {
         
         return try await post(url: url, body: body, jwt: nil) // No JWT needed for initial creation
     }
+    
+    // MARK: - Account Deletion
+    func deleteAccount() async throws -> AccountDeletionResponse {
+        let url = URL(string: baseURL + "/users/me")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        
+        if let token = authManager.jwt {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            // Debug: Print error response
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("❌ Account deletion error response (\((response as? HTTPURLResponse)?.statusCode ?? 0)):")
+                print(errorString)
+            }
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        
+        return try JSONDecoder().decode(AccountDeletionResponse.self, from: data)
+    }
+}
+
+// MARK: - Account Deletion Models
+struct AccountDeletionResponse: Codable {
+    let message: String
+    let deletion_summary: DeletionSummary
+}
+
+struct DeletionSummary: Codable {
+    let user_id: String
+    let deleted_items: DeletedItems
+    let errors: [String]
+    let success: Bool
+}
+
+struct DeletedItems: Codable {
+    let reviews: Int
+    let collections: Int
+    let watchlist_items: Int
+    let taste_profile: Int
+    let recommendations: Int
+    let search_history: Int
+    let moodboards: Int
+    let rooms_handled: Int
+    let room_invitations: Int
+    let friendships_removed: Int
+    let friend_requests: Int
+    let cache_cleared: Int
+    let user_profile: Int
 }
  

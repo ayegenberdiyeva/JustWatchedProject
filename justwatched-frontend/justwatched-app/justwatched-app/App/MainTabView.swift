@@ -39,10 +39,10 @@ struct MainTabView: View {
                     Label("Friends", systemImage: "person.2.fill")
                 }
             
-            AddReviewView()
-                .tabItem {
-                    Label("Add Review", systemImage: "plus")
-                }
+            // AddReviewView()
+            //     .tabItem {
+            //         Label("Add Review", systemImage: "plus")
+            //     }
             
             Group {
                 if pendingInvitationsCount > 0 {

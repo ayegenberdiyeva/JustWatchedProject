@@ -5,6 +5,9 @@ struct SettingsView: View {
     @State private var showDeleteAccountAlert = false
     @State private var showLogoutAlert = false
     @State private var navigateToManageCollections = false
+    @State private var isDeletingAccount = false
+    @State private var deleteAccountError: String?
+    @State private var showDeleteAccountError = false
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -18,8 +21,9 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
             
             VStack(spacing: 24) {
                 // Header
@@ -79,10 +83,17 @@ struct SettingsView: View {
                         showDeleteAccountAlert = true
                     }) {
                         HStack {
-                            Image(systemName: "trash.fill")
-                                .foregroundColor(.red)
-                                .frame(width: 24)
-                            Text("Delete Account")
+                            if isDeletingAccount {
+                                ProgressView()
+                                    .tint(.red)
+                                    .scaleEffect(0.8)
+                                    .frame(width: 24)
+                            } else {
+                                Image(systemName: "trash.fill")
+                                    .foregroundColor(.red)
+                                    .frame(width: 24)
+                            }
+                            Text(isDeletingAccount ? "Deleting..." : "Delete Account")
                                 .foregroundColor(.white)
                                 .font(.system(size: 18, weight: .medium))
                             Spacer()
@@ -92,6 +103,7 @@ struct SettingsView: View {
                         .cornerRadius(16)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .disabled(isDeletingAccount)
                 }
                 .padding(.horizontal)
                 
@@ -102,6 +114,7 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .alert("Logout", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Logout", role: .destructive) {
@@ -113,11 +126,53 @@ struct SettingsView: View {
         .alert("Delete Account", isPresented: $showDeleteAccountAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                // TODO: Implement delete account functionality
-                print("Delete account functionality to be implemented")
+                Task {
+                    await deleteAccount()
+                }
             }
         } message: {
-            Text("Are you sure you want to delete your account? This action cannot be undone.")
+            Text("Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your data including reviews, collections, watchlist, and profile.")
+        }
+        .alert("Delete Account Error", isPresented: $showDeleteAccountError) {
+            Button("OK") {
+                deleteAccountError = nil
+            }
+        } message: {
+            if let error = deleteAccountError {
+                Text(error)
+            }
+        }
+        }
+    }
+    
+    private func deleteAccount() async {
+        isDeletingAccount = true
+        deleteAccountError = nil
+        
+        do {
+            let response = try await AuthManager.shared.deleteAccount()
+            
+            await MainActor.run {
+                isDeletingAccount = false
+                
+                // Clear authentication state to trigger navigation to login
+                AuthManager.shared.signOut()
+                
+                // Show success message (optional)
+                print("✅ Account deleted successfully")
+                print("📊 Deletion summary:")
+                print("   - Reviews: \(response.deletion_summary.deleted_items.reviews)")
+                print("   - Collections: \(response.deletion_summary.deleted_items.collections)")
+                print("   - Watchlist items: \(response.deletion_summary.deleted_items.watchlist_items)")
+                print("   - Rooms handled: \(response.deletion_summary.deleted_items.rooms_handled)")
+                print("   - Friendships removed: \(response.deletion_summary.deleted_items.friendships_removed)")
+            }
+        } catch {
+            await MainActor.run {
+                isDeletingAccount = false
+                deleteAccountError = error.localizedDescription
+                showDeleteAccountError = true
+            }
         }
     }
 }

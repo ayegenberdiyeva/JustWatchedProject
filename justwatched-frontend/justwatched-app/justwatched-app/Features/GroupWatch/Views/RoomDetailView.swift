@@ -59,6 +59,7 @@ struct RoomDetailView: View {
             }
             NavigationLink(destination: VotingView(viewModel: viewModel, roomId: roomId), isActive: $navigateToVoting) { EmptyView() }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func roomHeaderSection(room: Room) -> some View {

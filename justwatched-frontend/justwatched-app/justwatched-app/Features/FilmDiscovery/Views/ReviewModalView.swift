@@ -6,6 +6,7 @@ struct ReviewModalView: View {
             Color.black.ignoresSafeArea()
             Text("ReviewModalView")
         }
+        .toolbar(.hidden, for: .tabBar)
     }
 }
 

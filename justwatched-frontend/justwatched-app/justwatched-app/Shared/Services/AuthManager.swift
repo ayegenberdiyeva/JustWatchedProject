@@ -160,12 +160,29 @@ class AuthManager: ObservableObject {
             UserDefaults.standard.removeObject(forKey: jwtKey)
         }
     }
+    
+    func deleteAccount() async throws -> AccountDeletionResponse {
+        guard let jwt = jwt else { throw AuthError.notAuthenticated }
+        
+        let network = NetworkService.shared
+        let response = try await network.deleteAccount()
+        
+        // Clear local data after successful deletion
+        await MainActor.run {
+            self.jwt = nil
+            self.userProfile = nil
+            UserDefaults.standard.removeObject(forKey: jwtKey)
+        }
+        
+        return response
+    }
 
     enum AuthError: LocalizedError {
         case notAuthenticated
         case invalidCredentials
         case profileNotFound
         case networkError(String)
+        case accountDeletionFailed(String)
         
         var errorDescription: String? {
             switch self {
@@ -173,6 +190,7 @@ class AuthManager: ObservableObject {
             case .invalidCredentials: return "Invalid email or password."
             case .profileNotFound: return "User profile not found."
             case .networkError(let message): return "Network error: \(message)"
+            case .accountDeletionFailed(let message): return "Account deletion failed: \(message)"
             }
         }
     }

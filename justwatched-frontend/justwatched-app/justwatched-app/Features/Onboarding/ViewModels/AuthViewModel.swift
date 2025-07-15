@@ -46,6 +46,8 @@ class AuthViewModel: ObservableObject {
                     self.error = "User profile not found. Please contact support."
                 case .networkError(let message):
                     self.error = "Network error: \(message)"
+                case .accountDeletionFailed(let message):
+                    self.error = "Account deletion failed: \(message)"
                 }
             } else if let networkError = error as? NetworkError {
                 switch networkError {
@@ -114,6 +116,8 @@ class AuthViewModel: ObservableObject {
                     self.error = "Profile creation failed. Please try again."
                 case .networkError(let message):
                     self.error = "Network error: \(message)"
+                case .accountDeletionFailed(let message):
+                    self.error = "Account deletion failed: \(message)"
                 }
             } else if let networkError = error as? NetworkError {
                 switch networkError {

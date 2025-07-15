@@ -240,5 +240,6 @@ struct OtherUserProfileView: View {
             Task { await friendVM.checkStatus(with: userId) }
         }
         .padding(.horizontal)
+        .toolbar(.hidden, for: .tabBar)
     }
 } 

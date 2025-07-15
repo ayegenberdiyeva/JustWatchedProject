@@ -70,6 +70,7 @@ struct CreateRoomView: View {
         .onDisappear {
             stopGradientAnimation()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private var headerSection: some View {

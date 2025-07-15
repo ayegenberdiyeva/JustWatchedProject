@@ -186,6 +186,7 @@ struct SearchResultsView: View {
                 try? await AuthManager.shared.refreshUserProfile()
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
 }
 

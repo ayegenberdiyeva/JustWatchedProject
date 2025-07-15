@@ -42,29 +42,41 @@ struct Review: Identifiable, Codable, Hashable {
         content = try container.decodeIfPresent(String.self, forKey: .content)
         posterPath = try container.decodeIfPresent(String.self, forKey: .posterPath)
         if let createdAtString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            createdAt = formatter.date(from: createdAtString)
+            createdAt = Review.parseDate(from: createdAtString)
         } else {
             createdAt = nil
         }
         if let updatedAtString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            updatedAt = formatter.date(from: updatedAtString)
+            updatedAt = Review.parseDate(from: updatedAtString)
         } else {
             updatedAt = nil
         }
         if let watchedDateString = try container.decodeIfPresent(String.self, forKey: .watchedDate) {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            watchedDate = formatter.date(from: watchedDateString)
+            watchedDate = Review.parseDate(from: watchedDateString)
         } else {
             watchedDate = nil
         }
         title = (try container.decodeIfPresent(String.self, forKey: .title)) ?? "Media #\(mediaId)"
         status = try container.decode(String.self, forKey: .status)
         collections = try container.decodeIfPresent([String].self, forKey: .collections)
+    }
+    
+    private static func parseDate(from dateString: String) -> Date? {
+        // Try with fractional seconds first (for created_at and updated_at)
+        let formatterWithFractional = ISO8601DateFormatter()
+        formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatterWithFractional.date(from: dateString) {
+            return date
+        }
+        
+        // Try without fractional seconds (for watched_date)
+        let formatterWithoutFractional = ISO8601DateFormatter()
+        formatterWithoutFractional.formatOptions = [.withInternetDateTime]
+        if let date = formatterWithoutFractional.date(from: dateString) {
+            return date
+        }
+        
+        return nil
     }
     
     func hash(into hasher: inout Hasher) {

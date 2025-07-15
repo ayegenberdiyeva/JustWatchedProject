@@ -124,5 +124,6 @@ struct FriendRequestsView: View {
         .onAppear {
             Task { await viewModel.loadPendingRequests() }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
 } 

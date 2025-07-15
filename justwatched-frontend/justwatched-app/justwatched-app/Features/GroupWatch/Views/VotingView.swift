@@ -50,6 +50,7 @@ struct VotingView: View {
             .onDisappear {
                 viewModel.stopVoting()
             }
+            .toolbar(.hidden, for: .tabBar)
         }
     }
     

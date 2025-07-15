@@ -6,6 +6,7 @@ struct HomeView: View {
     @State private var navigateToAddReview = false
     @State private var selectedRecommendation: RecommendationResult? = nil
 
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -26,7 +27,11 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             headerSection
-                                .frame(height: 150)
+                                .frame(height: 110)
+                            
+                            
+
+                            
                             if viewModel.isLoading {
                                                 ProgressView()
                     .tint(.white)
@@ -50,6 +55,14 @@ struct HomeView: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        navigateToAddReview = true
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.white)
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         if authManager.isAuthenticated, let jwt = authManager.jwt {
@@ -76,6 +89,10 @@ struct HomeView: View {
                     Task { await viewModel.fetchRecommendations(jwt: jwt) }
                 }
             }
+
+            .navigationDestination(isPresented: $navigateToAddReview) {
+                AddReviewView()
+            }
         }
     }
     
@@ -89,19 +106,19 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Recommended ")
-                        .font(.title2)
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundColor(.white)
                     Text("For You")
-                        .font(.title2.bold())
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(.white)
                 }
-                if let generatedAt = viewModel.generatedAt {
-                    Text("Generated: \(formatDate(generatedAt))")
-                        .font(.footnote)
-                        .foregroundColor(.white.opacity(0.8))
-                }
+                // if let generatedAt = viewModel.generatedAt {
+                //     Text("Generated: \(formatDate(generatedAt))")
+                //         .font(.footnote)
+                //         .foregroundColor(.white.opacity(0.8))
+                // }
                 Text("Personalized recommendations based on your taste")
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(.white)
                     .lineLimit(2)
             }
@@ -112,6 +129,21 @@ struct HomeView: View {
         .cornerRadius(32)
         .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 6)
         .padding(.horizontal)
+    }
+    
+
+    
+
+    
+    private var preferredColor: Color {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
     }
     
     private func errorSection(error: String) -> some View {
@@ -199,6 +231,8 @@ struct HomeView: View {
         }
         return dateString
     }
+    
+
 }
 
 struct PersonalRecommendationCard: View {

@@ -79,6 +79,7 @@ struct UserSearchView: View {
                 OtherUserProfileView(userId: userId)
             }
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
 

@@ -390,7 +390,10 @@ struct FriendReviewsView: View {
             }
         }
         .sheet(item: $selectedReview) { review in
-            ReviewDetailSheet(review: review)
+            ReviewDetailSheet(review: review, onReviewDeleted: {
+                // Refresh the friends feed after deleting a review
+                Task { await onRefresh() }
+            })
         }
         .sheet(isPresented: $showAddReview) {
             if let review = selectedReviewForAdd {
@@ -579,41 +582,7 @@ struct FriendReviewCard: View {
         .cornerRadius(24)
         .padding(.vertical, 8)
         .sheet(isPresented: $showFullReview) {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                VStack(spacing: 24) {
-                    Text("Full Review")
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .padding(.top)
-                    
-                    HStack {
-                        Text(review.title)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Spacer()
-                        Text("\(review.rating)/5")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal)
-                    
-                    ScrollView {
-                        Text(review.content ?? "")
-                            .font(.body)
-                            .foregroundColor(.white)
-                            .padding()
-                    }
-                    
-                    Button("Close") { showFullReview = false }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(12)
-                }
-            }
-            .presentationDetents([.medium, .large])
+            ReviewDetailSheet(review: review, onReviewDeleted: nil)
         }
     }
 }

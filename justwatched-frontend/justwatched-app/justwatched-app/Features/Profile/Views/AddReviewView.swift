@@ -7,6 +7,8 @@ struct AddReviewView: View {
     @State private var showError = false
     @State private var showSuccess = false
     @State private var showAddCollection = false
+    @State private var gradientAngle: Double = 0.0
+    @FocusState private var isSearchFocused: Bool
     
     // Callback to notify parent of successful review addition
     var onReviewAdded: (() -> Void)?
@@ -30,7 +32,7 @@ struct AddReviewView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 // Black background with blurred poster overlay
                 if let posterPath = viewModel.selectedMovie?.posterPath ?? viewModel.selectedTVShow?.posterPath {
@@ -71,7 +73,7 @@ struct AddReviewView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(Color.white.opacity(0.15))
-                                    .foregroundColor(preferredColor)
+                                    .foregroundColor(Color.white)
                                     .cornerRadius(16)
                             }
                             .padding(.vertical, 8)
@@ -93,9 +95,11 @@ struct AddReviewView: View {
             }
             .navigationTitle("Add Review")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    // Placeholder for the removed Cancel button
+                    // Back button removed
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     // Placeholder for the removed Save button
@@ -145,6 +149,7 @@ struct AddReviewView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private var preferredColor: Color {
@@ -157,31 +162,59 @@ struct AddReviewView: View {
         default: return .white
         }
     }
+    
+    private var animatedPlaceholderText: some View {
+        let colorValue = AuthManager.shared.userProfile?.color ?? "red"
+        return Text("Search for a movie or TV show...")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(
+                AngularGradient(
+                    gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
+                    center: .topTrailing,
+                    startAngle: .degrees(gradientAngle),
+                    endAngle: .degrees(gradientAngle + 360)
+                )
+            )
+            .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
+    }
 
     private var searchBar: some View {
         HStack {
-            ZStack(alignment: .trailing) {
-                // TextField with left and right padding, always reserve space for button
-                TextField("", text: $viewModel.searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .padding(8)
-                    .background(Color.secondary.opacity(0.5))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                    .accentColor(preferredColor) // text cursor color
-                .onChange(of: viewModel.searchText) { _, _ in
-                    Task { await viewModel.searchMoviesAndTVShows() }
+            ZStack(alignment: .leading) {
+                TextField(
+                    "",
+                    text: $viewModel.searchText
+                )
+                .focused($isSearchFocused)
+                .onSubmit {
+                    isSearchFocused = false
                 }
-                // Placeholder
+                .padding()
+                .background(.white.opacity(0.1))
+                .foregroundColor(.white)
+                .cornerRadius(20)
+                
                 if viewModel.searchText.isEmpty {
-                    HStack {
-                        Text("Search for a movie or TV show...")
-                            .foregroundColor(preferredColor)
-                            .padding(.leading, 8)
-                            .allowsHitTesting(false)
-                        Spacer()
-                    }
+                    animatedPlaceholderText
+                        .padding(.leading, 16)
+                        .allowsHitTesting(false)
                 }
+            }
+            .padding(.horizontal)
+            .onChange(of: viewModel.searchText) { _, _ in
+                Task { await viewModel.searchMoviesAndTVShows() }
+            }
+            .onAppear {
+                // Start gradient animation
+                Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                    gradientAngle += 1.0
+                }
+            }
+            if viewModel.isLoading {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
+                    .padding(.trailing)
             }
         }
     }
@@ -455,8 +488,8 @@ struct AddReviewView: View {
     }
 }
 
-//#Preview {
-//    AddReviewView()
-//} 
-// 
+#Preview {
+    AddReviewView()
+} 
+ 
  

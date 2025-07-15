@@ -33,6 +33,11 @@ actor FriendsService {
     private let baseURL = "https://itsjustwatched.com/api/v1/friends"
     private var jwt: String? { AuthManager.shared.jwt }
     private var session: URLSession { .shared }
+    
+    // MARK: - Authentication Error Handling
+    private func handleAuthenticationError(_ response: URLResponse) async {
+        await AuthErrorHandler.shared.handleAuthenticationError(response)
+    }
 
     // 1. Check friendship status
     func checkStatus(with userId: String) async throws -> FriendStatusResponse {
@@ -40,7 +45,11 @@ actor FriendsService {
         let url = URL(string: "\(baseURL)/status/\(userId)")!
         var req = URLRequest(url: url)
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try await session.data(for: req)
+        let (data, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         return try JSONDecoder().decode(FriendStatusResponse.self, from: data)
     }
 
@@ -61,6 +70,9 @@ actor FriendsService {
         req.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await session.data(for: req)
         
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         // Debug: Print response details
         if let httpResponse = response as? HTTPURLResponse {
             print("🔍 Friend request response status: \(httpResponse.statusCode)")
@@ -79,7 +91,11 @@ actor FriendsService {
         let url = URL(string: "\(baseURL)/requests")!
         var req = URLRequest(url: url)
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try await session.data(for: req)
+        let (data, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         return try JSONDecoder().decode(FriendRequestsResponse.self, from: data).requests
     }
 
@@ -93,7 +109,10 @@ actor FriendsService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body = ["request_id": requestId, "action": action]
         req.httpBody = try JSONEncoder().encode(body)
-        _ = try await session.data(for: req)
+        let (_, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
     }
 
     // 5. Get current user's friends
@@ -103,7 +122,11 @@ actor FriendsService {
         let url = URL(string: baseURL + "/")!
         var req = URLRequest(url: url)
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try await session.data(for: req)
+        let (data, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         return try JSONDecoder().decode(FriendsListResponse.self, from: data).friends
     }
 
@@ -114,7 +137,10 @@ actor FriendsService {
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        _ = try await session.data(for: req)
+        let (_, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
     }
 
     // 7. Get another user's friends (if friends)
@@ -123,7 +149,11 @@ actor FriendsService {
         let url = URL(string: "\(baseURL)/users/\(userId)/friends")!
         var req = URLRequest(url: url)
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        let (data, _) = try await session.data(for: req)
+        let (data, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         return try JSONDecoder().decode(FriendsListResponse.self, from: data).friends
     }
 
@@ -134,6 +164,9 @@ actor FriendsService {
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
         req.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        _ = try await session.data(for: req)
+        let (_, response) = try await session.data(for: req)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
     }
 } 

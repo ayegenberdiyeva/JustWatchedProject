@@ -101,6 +101,7 @@ struct RoomInvitationsView: View {
         .task {
             await loadInvitations()
         }
+        .toolbar(.hidden, for: .tabBar)
 
     }
     

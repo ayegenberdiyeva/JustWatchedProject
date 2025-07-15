@@ -144,6 +144,7 @@ struct ManageCollectionsView: View {
         .task {
             await loadCollections()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func loadCollections() async {

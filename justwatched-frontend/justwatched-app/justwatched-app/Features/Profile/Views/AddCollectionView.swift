@@ -107,6 +107,7 @@ struct AddCollectionView: View {
             .padding(.bottom, 32)
         }
         .background(Color.black.ignoresSafeArea())
+        .toolbar(.hidden, for: .tabBar)
     }
 } 
 

@@ -159,6 +159,7 @@ struct InviteFriendsView: View {
         .task {
             await loadData()
         }
+        .toolbar(.hidden, for: .tabBar)
     }
     
     private func loadData() async {

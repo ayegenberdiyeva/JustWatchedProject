@@ -5,6 +5,11 @@ actor RoomService {
     private let baseURL = "https://itsjustwatched.com/api/v1"
     private let session = URLSession.shared
     
+    // MARK: - Authentication Error Handling
+    private func handleAuthenticationError(_ response: URLResponse) async {
+        await AuthErrorHandler.shared.handleAuthenticationError(response)
+    }
+    
     // MARK: - Room Management
     
     func fetchUserRooms(jwt: String) async throws -> [Room] {
@@ -16,6 +21,9 @@ actor RoomService {
         request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
         
         let (data, response) = try await session.data(for: request)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.requestFailed(statusCode: 500)
@@ -45,6 +53,9 @@ actor RoomService {
         
         let (data, response) = try await session.data(for: request)
         
+        // Handle authentication errors
+        await handleAuthenticationError(response)
+        
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.requestFailed(statusCode: 500)
         }
@@ -70,6 +81,9 @@ actor RoomService {
         urlRequest.httpBody = try encoder.encode(request)
         
         let (data, response) = try await session.data(for: urlRequest)
+        
+        // Handle authentication errors
+        await handleAuthenticationError(response)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.requestFailed(statusCode: 500)
