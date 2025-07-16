@@ -38,7 +38,7 @@ struct FriendsFeedView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             HStack(alignment: .firstTextBaseline, spacing: 0) {
                                 Text("Watched by ")
-                                    .font(.title2)
+                                    .font(.system(size: 32, weight: .medium))
                                     .foregroundStyle(
                                         AngularGradient(
                                             gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
@@ -49,7 +49,7 @@ struct FriendsFeedView: View {
                                     )
                                     .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                                 Text("Friends")
-                                    .font(.title2.bold())
+                                    .font(.system(size: 32, weight: .heavy))
                                     .foregroundStyle(
                                         AngularGradient(
                                             gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
@@ -138,7 +138,7 @@ struct FriendsFeedView: View {
                             .cornerRadius(12)
                         }
                         .padding()
-                        .background(Color(hex: "393B3D").opacity(0.3))
+//                        .background(Color(hex: "393B3D").opacity(0.3))
                         .cornerRadius(24)
                         .padding(.horizontal)
                     } else if friends.isEmpty {
@@ -217,7 +217,10 @@ struct FriendsFeedView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { 
-                        Task { await loadFriendsFeed() }
+                        Task { 
+                            await loadFriendsFeed()
+                            await loadPendingFriendRequests()
+                        }
                     }) {
                         Image(systemName: "arrow.clockwise")
                             .foregroundColor(.white)
@@ -229,7 +232,7 @@ struct FriendsFeedView: View {
                     .hidden()
             )
             .background(
-                NavigationLink(destination: FriendRequestsView(), isActive: $navigateToFriendRequests) { EmptyView() }
+                NavigationLink(destination: FriendsListView(), isActive: $navigateToFriendRequests) { EmptyView() }
                     .hidden()
             )
             .task {
@@ -253,6 +256,30 @@ struct FriendsFeedView: View {
     }
     
     private func loadFriendsFeed() async {
+        // First, try to load from cache
+        if let cachedFriendsReviews = CacheManager.shared.getCachedFriendsReviews() {
+            friendsReviewsData = cachedFriendsReviews
+            
+            // Convert to UserProfile objects for the friends list
+            friends = cachedFriendsReviews.friends.map { friendData in
+                UserProfile(
+                    userId: friendData.userId,
+                    displayName: friendData.displayName,
+                    email: nil,
+                    bio: nil,
+                    color: friendData.color,
+                    createdAt: nil,
+                    personalRecommendations: nil,
+                    isFriend: true
+                )
+            }
+            
+            // Select first friend by default if available
+            if let firstFriend = friends.first {
+                selectedFriend = firstFriend
+            }
+        }
+        
         isLoading = true
         error = nil
         
@@ -279,6 +306,9 @@ struct FriendsFeedView: View {
             if let firstFriend = friends.first {
                 selectedFriend = firstFriend
             }
+            
+            // Cache the friends reviews
+            CacheManager.shared.cacheFriendsReviews(friendsReviewsResponse)
         } catch {
             self.error = error.localizedDescription
         }
@@ -291,6 +321,10 @@ struct FriendsFeedView: View {
     }
     
     private func loadIncomingRequestsCount() async {
+        await loadPendingFriendRequests()
+    }
+    
+    private func loadPendingFriendRequests() async {
         do {
             let pendingRequests = try await FriendsService.shared.getPendingRequests()
             let incomingRequests = pendingRequests.filter { $0.status == "pending_received" }
@@ -298,7 +332,7 @@ struct FriendsFeedView: View {
                 incomingRequestsCount = incomingRequests.count
             }
         } catch {
-            print("Error loading incoming requests count: \(error)")
+            print("Error loading pending friend requests: \(error)")
         }
     }
 }

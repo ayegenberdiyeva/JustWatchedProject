@@ -9,6 +9,7 @@ class AddReviewViewModel: ObservableObject {
     @Published var selectedTVShow: TVShow? = nil
     @Published var rating: Int = 0
     @Published var reviewText: String = ""
+    @Published var watchedDate: Date = Date()
     @Published var isLoading: Bool = false
     @Published var error: String? = nil
     @Published var success: Bool = false
@@ -21,6 +22,7 @@ class AddReviewViewModel: ObservableObject {
     @Published var newCollectionVisibility: String = "private"
     
     private let networkService = NetworkService.shared
+    private let cacheManager = CacheManager.shared
     private var searchTask: Task<Void, Never>?
     
     func searchMoviesAndTVShows() async {
@@ -45,10 +47,18 @@ class AddReviewViewModel: ObservableObject {
     }
     
     func fetchCollections() async {
+        // First, try to load from cache
+        if let cachedCollections = cacheManager.getCachedUserCollections() {
+            self.collections = cachedCollections
+        }
+        
         isLoading = true
         defer { isLoading = false }
         do {
             self.collections = try await networkService.fetchUserCollections()
+            
+            // Cache the collections
+            cacheManager.cacheUserCollections(self.collections)
         } catch {
             self.error = error.localizedDescription
         }
@@ -62,6 +72,10 @@ class AddReviewViewModel: ObservableObject {
             let collection = try await networkService.createCollection(name: newCollectionName, description: newCollectionDescription.isEmpty ? nil : newCollectionDescription, visibility: newCollectionVisibility)
             collections.insert(collection, at: 0)
             selectedCollections.insert(collection.id)
+            
+            // Update cache
+            cacheManager.cacheUserCollections(collections)
+            
             newCollectionName = ""
             newCollectionDescription = ""
             newCollectionVisibility = "private"
@@ -89,7 +103,7 @@ class AddReviewViewModel: ObservableObject {
                 mediaType: selectedMovie != nil ? "movie" : "tv",
                 rating: Double(rating),
                 content: reviewText.isEmpty ? nil : reviewText,
-                watchedDate: Date(),
+                watchedDate: watchedDate,
                 mediaTitle: selectedMovie?.title ?? selectedTVShow?.name,
                 posterPath: selectedMovie?.posterPath ?? selectedTVShow?.posterPath,
                 status: status,
@@ -97,6 +111,9 @@ class AddReviewViewModel: ObservableObject {
             )
             try await networkService.postReview(review: reviewRequest)
             success = true
+            
+            // Clear user reviews cache to force refresh
+            cacheManager.clearCache(for: "cached_user_reviews")
         } catch {
             self.error = error.localizedDescription
             success = false

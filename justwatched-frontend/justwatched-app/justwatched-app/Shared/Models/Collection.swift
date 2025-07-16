@@ -34,8 +34,9 @@ struct CollectionResponse: Codable {
     }
 }
 
+// MARK: - Collections with Reviews (for /collections/me/reviews endpoint)
 struct CollectionsResponse: Codable {
-    let collections: [CollectionWithReviews]
+    let collections: [UserCollectionWithReviews]
     let totalCollections: Int
     let totalReviews: Int
     
@@ -43,6 +44,26 @@ struct CollectionsResponse: Codable {
         case collections
         case totalCollections = "total_collections"
         case totalReviews = "total_reviews"
+    }
+}
+
+struct UserCollectionWithReviews: Codable, Identifiable {
+    let collectionId: String
+    let name: String
+    let description: String?
+    let visibility: String
+    let reviewCount: Int
+    let reviews: [UserCollectionReview]
+    
+    var id: String { collectionId }
+    
+    enum CodingKeys: String, CodingKey {
+        case collectionId = "collection_id"
+        case name
+        case description
+        case visibility
+        case reviewCount = "review_count"
+        case reviews
     }
 }
 
@@ -61,7 +82,7 @@ struct CollectionReviewsResponse: Codable {
     }
 }
 
-struct UserCollectionReview: Codable, Identifiable {
+struct UserCollectionReview: Codable, Identifiable, Hashable {
     let reviewId: String
     let mediaId: String
     let mediaTitle: String
@@ -69,6 +90,7 @@ struct UserCollectionReview: Codable, Identifiable {
     let posterPath: String?
     let rating: Int?
     let reviewText: String?
+    let watchedDate: String?
     let status: String
     let createdAt: String
     let updatedAt: String
@@ -83,6 +105,7 @@ struct UserCollectionReview: Codable, Identifiable {
         case posterPath = "poster_path"
         case rating
         case reviewText = "review_text"
+        case watchedDate = "watched_date"
         case status
         case createdAt = "created_at"
         case updatedAt = "updated_at"

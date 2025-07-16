@@ -7,6 +7,8 @@ struct UserSearchView: View {
     @State private var error: String? = nil
     @State private var selectedUserId: String? = nil
     @State private var navigateToProfile = false
+    @State private var gradientAngle: Double = 0.0
+    @FocusState private var isSearchFocused: Bool
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -21,31 +23,7 @@ struct UserSearchView: View {
     
     var body: some View {
         VStack {
-            HStack {
-                TextField(
-                    "",
-                    text: $searchText,
-                    prompt: Text("Search by username").foregroundColor(preferredColor)
-                )
-                .padding()
-                .background(preferredColor.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(preferredColor, lineWidth: 1)
-                )
-                .padding(.horizontal)
-                .onChange(of: searchText) { newValue in
-                    Task { await searchUsers() }
-                }
-                if isLoading {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                        .padding(.trailing)
-                }
-            }
+            searchBar
             if let error = error {
                 Text(error).foregroundColor(.red).padding()
             }
@@ -82,7 +60,61 @@ struct UserSearchView: View {
         .toolbar(.hidden, for: .tabBar)
     }
     
+    private var animatedPlaceholderText: some View {
+        let colorValue = AuthManager.shared.userProfile?.color ?? "red"
+        return Text("Search by username...")
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(
+                AngularGradient(
+                    gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
+                    center: .topTrailing,
+                    startAngle: .degrees(gradientAngle),
+                    endAngle: .degrees(gradientAngle + 360)
+                )
+            )
+            .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
+    }
 
+    private var searchBar: some View {
+        HStack {
+            ZStack(alignment: .leading) {
+                TextField(
+                    "",
+                    text: $searchText
+                )
+                .focused($isSearchFocused)
+                .onSubmit {
+                    isSearchFocused = false
+                }
+                .padding()
+                .background(.white.opacity(0.1))
+                .foregroundColor(.white)
+                .cornerRadius(20)
+                
+                if searchText.isEmpty {
+                    animatedPlaceholderText
+                        .padding(.leading, 16)
+                        .allowsHitTesting(false)
+                }
+            }
+            .padding(.horizontal)
+            .onChange(of: searchText) { _, _ in
+                Task { await searchUsers() }
+            }
+            .onAppear {
+                // Start gradient animation
+                Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                    gradientAngle += 1.0
+                }
+            }
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.5)
+                    .padding(.trailing)
+            }
+        }
+    }
     
     private func searchUsers() async {
         guard !searchText.isEmpty else { results = []; return }

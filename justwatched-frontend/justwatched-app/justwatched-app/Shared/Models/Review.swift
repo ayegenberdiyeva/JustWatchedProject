@@ -15,6 +15,23 @@ struct Review: Identifiable, Codable, Hashable {
     let status: String // "watched" | "watchlist"
     let collections: [String]? // collection IDs
     
+    // Custom initializer for creating from UserCollectionReview
+    init(reviewId: String, mediaId: String, mediaType: String, rating: Int, content: String?, posterPath: String?, watchedDate: Date?, title: String, status: String, createdAt: Date?, updatedAt: Date?) {
+        self.id = reviewId
+        self.mediaId = mediaId
+        self.mediaType = mediaType
+        self.userId = nil
+        self.rating = rating
+        self.content = content
+        self.posterPath = posterPath
+        self.watchedDate = watchedDate
+        self.title = title
+        self.status = status
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.collections = nil
+    }
+    
     enum CodingKeys: String, CodingKey {
         case id = "review_id"
         case mediaId = "media_id"

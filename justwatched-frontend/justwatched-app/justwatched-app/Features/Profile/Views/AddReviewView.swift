@@ -67,6 +67,7 @@ struct AddReviewView: View {
                                 viewModel.searchResults = []
                                 viewModel.rating = 0
                                 viewModel.reviewText = ""
+                                viewModel.watchedDate = Date()
                             }) {
                                 Text("Change selection")
                                     .font(.system(size: 18, weight: .semibold, design: .rounded))
@@ -309,37 +310,6 @@ struct AddReviewView: View {
                         .animation(.spring(), value: viewModel.rating)
                 }
             }
-            // Watched/Watchlist picker
-            HStack(spacing: 0) {
-                ForEach(["watched", "watchlist"], id: \ .self) { status in
-                    Button(action: { viewModel.status = status }) {
-                        Text(status.capitalized)
-                            .fontWeight(.semibold)
-                            .foregroundColor(viewModel.status == status ? preferredColor : .white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                ZStack {
-                                    if viewModel.status == status {
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.white.opacity(0.08))
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(preferredColor.opacity(0.5), lineWidth: 8)
-                                            .blur(radius: 6)
-                                            .offset(x: 0, y: 0)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    }
-                                }
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.black.opacity(0.5))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 14))
             // Review textfield
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your Review")
@@ -372,10 +342,30 @@ struct AddReviewView: View {
                 .frame(height: outerHeight)
                 .frame(maxWidth: .infinity)
             }
+            // Watched Date
+            HStack(alignment: .center, spacing: 6) {
+                Text("Watched on")
+                    .font(.headline.bold())
+                    .foregroundColor(.white)
+                DatePicker(
+                    "Watched Date",
+                    selection: $viewModel.watchedDate,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .accentColor(preferredColor)
+                .colorScheme(.dark)
+                .labelsHidden()
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                // .background(Color.secondary.opacity(0.25))
+                .cornerRadius(16)
+                Spacer()
+            }
             // Collections
             HStack {
                 Text("Collections:")
-                    .font(.subheadline.bold())
+                    .font(.headline.bold())
                     .foregroundColor(.white)
                 Spacer()
                 Button(action: { showAddCollection = true }) {
@@ -429,6 +419,7 @@ struct AddReviewView: View {
                         viewModel.selectedTVShow = nil
                         viewModel.rating = 0
                         viewModel.reviewText = ""
+                        viewModel.watchedDate = Date()
                         viewModel.searchText = ""
                         viewModel.searchResults = []
                         viewModel.status = "watched"
@@ -452,6 +443,7 @@ struct AddReviewView: View {
                                 viewModel.selectedTVShow = nil
                                 viewModel.rating = 0
                                 viewModel.reviewText = ""
+                                viewModel.watchedDate = Date()
                                 viewModel.searchText = ""
                                 viewModel.searchResults = []
                                 viewModel.status = "watched"

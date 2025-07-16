@@ -62,7 +62,7 @@ struct RoomListView: View {
                     }
                 }
             }
-            .navigationTitle("Group Watch")
+            .navigationTitle("Rooms")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -147,16 +147,17 @@ struct RoomListView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Group ")
-                        .font(.title2)
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundColor(.white)
                     Text("Watch")
-                        .font(.title2.bold())
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(.white)
                 }
                 Text("Create or join rooms to choose movies together")
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(.white)
-                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .leading)

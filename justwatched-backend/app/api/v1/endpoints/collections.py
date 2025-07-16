@@ -5,6 +5,7 @@ from app.crud.review_crud import ReviewCRUD
 from app.core.security import get_current_user
 from app.schemas.user import CollectionCreate, CollectionUpdate, CollectionVisibility
 from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter()
 collection_crud = CollectionCRUD()
@@ -119,11 +120,31 @@ async def get_my_reviews_by_collections(
             for review_id in review_ids:
                 review = await review_crud.get_review(review_id)
                 if review:
-                    # Convert datetime fields
-                    if "created_at" in review and hasattr(review["created_at"], "isoformat"):
-                        review["created_at"] = review["created_at"].isoformat()
-                    if "updated_at" in review and hasattr(review["updated_at"], "isoformat"):
-                        review["updated_at"] = review["updated_at"].isoformat()
+                    # Ensure datetime fields are properly formatted
+                    if "created_at" in review:
+                        if hasattr(review["created_at"], "isoformat"):
+                            review["created_at"] = review["created_at"].isoformat()
+                        elif isinstance(review["created_at"], datetime):
+                            review["created_at"] = review["created_at"].isoformat()
+                        elif not isinstance(review["created_at"], str):
+                            review["created_at"] = str(review["created_at"])
+                    
+                    if "updated_at" in review:
+                        if hasattr(review["updated_at"], "isoformat"):
+                            review["updated_at"] = review["updated_at"].isoformat()
+                        elif isinstance(review["updated_at"], datetime):
+                            review["updated_at"] = review["updated_at"].isoformat()
+                        elif not isinstance(review["updated_at"], str):
+                            review["updated_at"] = str(review["updated_at"])
+                    
+                    # Ensure watched_date is properly formatted
+                    if "watched_date" in review and review["watched_date"]:
+                        if hasattr(review["watched_date"], "isoformat"):
+                            review["watched_date"] = review["watched_date"].isoformat()
+                        elif isinstance(review["watched_date"], datetime):
+                            review["watched_date"] = review["watched_date"].isoformat()
+                        elif not isinstance(review["watched_date"], str):
+                            review["watched_date"] = str(review["watched_date"])
                     
                     reviews.append(UserCollectionReview(**review))
             

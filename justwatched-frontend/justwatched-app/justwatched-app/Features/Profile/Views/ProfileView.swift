@@ -11,6 +11,7 @@ struct ProfileView: View {
     @StateObject private var friendVM = ProfileFriendViewModel()
     @State private var collectionsData: CollectionsResponse? = nil
     @State private var isLoadingCollections = false
+    @State private var showFriendsList = false
     // Replace with the actual userId being viewed (for now, use AuthManager.shared.userProfile?.id for own profile)
     var viewedUserId: String? { viewModel.userProfile?.id }
     var isOwnProfile: Bool { viewedUserId == AuthManager.shared.userProfile?.id }
@@ -82,8 +83,11 @@ struct ProfileView: View {
                     }
                 })
             }
-            .sheet(isPresented: $showWatchlist) {
+            .navigationDestination(isPresented: $showWatchlist) {
                 WatchlistView()
+            }
+            .navigationDestination(isPresented: $showFriendsList) {
+                FriendsListView()
             }
             .navigationDestination(isPresented: $navigateToSettings) {
                 SettingsView()
@@ -107,15 +111,15 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Hi, ")
-                        .font(.title2)
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundColor(.white)
                     Text(AuthManager.shared.userProfile?.displayName ?? "UserName")
-                        .font(.title2.bold())
+                        .font(.system(size: 24, weight: .heavy))
                         .foregroundColor(.white)
                 }
                 Text((AuthManager.shared.userProfile?.bio ?? "")
                         .prefix(80))
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -135,7 +139,7 @@ struct ProfileView: View {
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
             clickableWatchlistStatView
             Divider().frame(height: 40).background(Color(hex: "393B3D"))
-            statView(title: "Groups", value: "0")
+            clickableFriendsStatView
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -200,6 +204,21 @@ struct ProfileView: View {
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 Text("Watchlist")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(Color(hex: "393B3D"))
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var clickableFriendsStatView: some View {
+        Button(action: { showFriendsList = true }) {
+            VStack {
+                Text("\(viewModel.friendsCount)")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("Friends")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(Color(hex: "393B3D"))
             }
@@ -284,10 +303,10 @@ struct ProfileView: View {
                                 if !collection.reviews.isEmpty {
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 24) {
-                                            ForEach(collection.reviews, id: \.self) { review in
+                                            ForEach(collection.reviews, id: \.self) { userReview in
                                                 GalleryReviewCard(
-                                                    review: review,
-                                                    onOpen: { selectedReview = review }
+                                                    review: convertToReview(userReview),
+                                                    onOpen: { selectedReview = convertToReview(userReview) }
                                                 )
                                                 .scrollTargetLayout()
                                             }
@@ -330,6 +349,23 @@ struct ProfileView: View {
         }
         
         isLoadingCollections = false
+    }
+    
+    // Convert UserCollectionReview to Review for GalleryReviewCard compatibility
+    private func convertToReview(_ userReview: UserCollectionReview) -> Review {
+        return Review(
+            reviewId: userReview.reviewId,
+            mediaId: userReview.mediaId,
+            mediaType: userReview.mediaType,
+            rating: userReview.rating ?? 0,
+            content: userReview.reviewText,
+            posterPath: userReview.posterPath,
+            watchedDate: userReview.watchedDate != nil ? ISO8601DateFormatter().date(from: userReview.watchedDate!) : nil,
+            title: userReview.mediaTitle,
+            status: userReview.status,
+            createdAt: ISO8601DateFormatter().date(from: userReview.createdAt),
+            updatedAt: ISO8601DateFormatter().date(from: userReview.updatedAt)
+        )
     }
     
     private func statView(title: String, value: String) -> some View {

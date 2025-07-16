@@ -32,11 +32,11 @@ struct VotingView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
-                        viewModel.stopVoting()
-                        dismiss()
-                    }
-                    .foregroundColor(.gray)
+                    // Button("Close") {
+                    //     viewModel.stopVoting()
+                    //     dismiss()
+                    // }
+                    // .foregroundColor(.gray)
                 }
             }
             .onAppear {
@@ -63,32 +63,37 @@ struct VotingView: View {
                     .overlay(Color.black.opacity(0.5).cornerRadius(32))
                 
                 VStack(spacing: 16) {
-                    Image(systemName: "hand.raised")
+                    Image(systemName: "wand.and.sparkles.inverse")
                         .font(.system(size: 60))
                         .foregroundColor(.white)
                     
-                    Text("Waiting for voting to start...")
+                    Text("Not available yet")
                         .font(.title2.bold())
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
+
+                    Text("Stay tuned!")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
                     
-                    if viewModel.isOwner {
-                        Button("Start Voting") {
-                            if let jwt = AuthManager.shared.jwt {
-                                Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(preferredColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                    } else {
-                        Text("Room owner will start the voting session")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                    }
+                    // if viewModel.isOwner {
+                    //     Button("Start Voting") {
+                    //         if let jwt = AuthManager.shared.jwt {
+                    //             Task { await viewModel.startVotingSession(roomId: roomId, jwt: jwt) }
+                    //         }
+                    //     }
+                    //     .padding(.horizontal, 24)
+                    //     .padding(.vertical, 12)
+                    //     .background(preferredColor)
+                    //     .foregroundColor(.white)
+                    //     .cornerRadius(16)
+                    // } else {
+                    //     Text("Room owner will start the voting session")
+                    //         .font(.subheadline)
+                    //         .foregroundColor(.white.opacity(0.7))
+                    //         .multilineTextAlignment(.center)
+                    // }
                 }
                 .padding(32)
             }

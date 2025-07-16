@@ -14,6 +14,7 @@ struct MainTabView: View {
     @State private var showAddReview = false
     @ObservedObject private var authManager = AuthManager.shared
     @State private var pendingInvitationsCount = 0
+    @State private var pendingFriendRequestsCount = 0
     // Map string color to SwiftUI Color
     private func preferredColor() -> Color {
         switch authManager.userProfile?.color {
@@ -34,10 +35,20 @@ struct MainTabView: View {
                     Text("Home")
                 }
             
-            FriendsFeedView()
-                .tabItem {
-                    Label("Friends", systemImage: "person.2.fill")
+            Group {
+                if pendingFriendRequestsCount > 0 {
+                    FriendsFeedView()
+                        .tabItem {
+                            Label("Friends", systemImage: "person.2.fill")
+                        }
+                        .badge(pendingFriendRequestsCount)
+                } else {
+                    FriendsFeedView()
+                        .tabItem {
+                            Label("Friends", systemImage: "person.2.fill")
+                        }
                 }
+            }
             
             // AddReviewView()
             //     .tabItem {
@@ -48,13 +59,13 @@ struct MainTabView: View {
                 if pendingInvitationsCount > 0 {
                     RoomListView()
                         .tabItem {
-                            Label("Group Watch", systemImage: "person.3.fill")
+                            Label("Rooms", systemImage: "sparkles")
                         }
                         .badge(pendingInvitationsCount)
                 } else {
                     RoomListView()
                         .tabItem {
-                            Label("Group Watch", systemImage: "person.3.fill")
+                            Label("Rooms", systemImage: "sparkles")
                         }
                 }
             }
@@ -70,12 +81,17 @@ struct MainTabView: View {
         .background(Color.black.ignoresSafeArea(edges: .bottom))
         .task {
             await loadPendingInvitations()
+            await loadPendingFriendRequests()
         }
         .onChange(of: authManager.isAuthenticated) { isAuthenticated in
             if isAuthenticated {
-                Task { await loadPendingInvitations() }
+                Task { 
+                    await loadPendingInvitations()
+                    await loadPendingFriendRequests()
+                }
             } else {
                 pendingInvitationsCount = 0
+                pendingFriendRequestsCount = 0
             }
         }
     }
@@ -96,6 +112,26 @@ struct MainTabView: View {
             print("Error loading pending invitations: \(error)")
             await MainActor.run {
                 pendingInvitationsCount = 0
+            }
+        }
+    }
+    
+    private func loadPendingFriendRequests() async {
+        guard authManager.isAuthenticated else {
+            pendingFriendRequestsCount = 0
+            return
+        }
+        
+        do {
+            let pendingRequests = try await FriendsService.shared.getPendingRequests()
+            let incomingRequests = pendingRequests.filter { $0.status == "pending_received" }
+            await MainActor.run {
+                pendingFriendRequestsCount = incomingRequests.count
+            }
+        } catch {
+            print("Error loading pending friend requests: \(error)")
+            await MainActor.run {
+                pendingFriendRequestsCount = 0
             }
         }
     }

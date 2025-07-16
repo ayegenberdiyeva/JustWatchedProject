@@ -11,13 +11,22 @@ class RoomListViewModel: ObservableObject {
     @Published var deletingRoomId: String? = nil
     
     private let roomService = RoomService()
+    private let cacheManager = CacheManager.shared
     
     func fetchRooms(jwt: String) async {
+        // First, try to load from cache
+        if let cachedRooms = cacheManager.getCachedUserRooms() {
+            self.rooms = cachedRooms
+        }
+        
         isLoading = true
         self.error = nil
         
         do {
             rooms = try await roomService.fetchUserRooms(jwt: jwt)
+            
+            // Cache the rooms
+            cacheManager.cacheUserRooms(rooms)
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Network error occurred"
         } catch let error {
@@ -40,6 +49,10 @@ class RoomListViewModel: ObservableObject {
             
             let newRoom = try await roomService.createRoom(request: request, jwt: jwt)
             rooms.append(newRoom)
+            
+            // Update cache
+            cacheManager.cacheUserRooms(rooms)
+            
             isLoading = false
             return true
         } catch let networkError as NetworkError {
@@ -75,6 +88,9 @@ class RoomListViewModel: ObservableObject {
             } else {
                 rooms.append(updatedRoom)
             }
+            
+            // Update cache
+            cacheManager.cacheUserRooms(rooms)
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Network error occurred"
         } catch let error {
@@ -88,6 +104,9 @@ class RoomListViewModel: ObservableObject {
             if let index = rooms.firstIndex(where: { $0.roomId == roomId }) {
                 rooms[index] = updatedRoom
             }
+            
+            // Update cache
+            cacheManager.cacheUserRooms(rooms)
         } catch let networkError as NetworkError {
             self.error = networkError.localizedDescription ?? "Network error occurred"
         } catch let error {

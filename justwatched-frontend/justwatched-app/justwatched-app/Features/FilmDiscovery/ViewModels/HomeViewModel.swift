@@ -7,8 +7,25 @@ class HomeViewModel: ObservableObject {
     @Published var generatedAt: String? = nil
     @Published var isLoading = false
     @Published var error: String? = nil
+    
+    private let cacheManager = CacheManager.shared
 
     func fetchRecommendations(jwt: String) async {
+        // First, try to load from cache
+        if let cachedRecommendations = cacheManager.getCachedRecommendations() {
+            // Convert cached movies to recommendation results
+            self.recommendations = cachedRecommendations.map { movie in
+                RecommendationResult(
+                    movieId: String(movie.id),
+                    title: movie.title,
+                    posterPath: movie.posterPath,
+                    confidenceScore: nil,
+                    reasoning: nil,
+                    mediaType: "movie"
+                )
+            }
+        }
+        
         isLoading = true
         error = nil
         guard let url = URL(string: "https://itsjustwatched.com/api/v1/users/me/recommendations") else { 
@@ -38,6 +55,18 @@ class HomeViewModel: ObservableObject {
             let recs = try JSONDecoder().decode(UserRecommendationsResponse.self, from: data)
             recommendations = recs.recommendations
             generatedAt = recs.generatedAt
+            
+            // Cache the recommendations (convert to Movie objects for caching)
+            let movies = recs.recommendations.map { rec in
+                Movie(
+                    id: Int(rec.movieId) ?? 0,
+                    title: rec.title,
+                    posterPath: rec.posterPath,
+                    releaseDate: nil,
+                    overview: nil
+                )
+            }
+            cacheManager.cacheRecommendations(movies)
             
         } catch let decodingError as DecodingError {
             print("Decoding error: \(decodingError)")

@@ -23,51 +23,50 @@ struct WatchlistView: View {
                 } else if let error = viewModel.error {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48))
+                            .font(.system(size: 40))
                             .foregroundColor(.red)
-                        
                         Text("Error loading watchlist")
-                            .font(.title2)
+                            .font(.headline)
                             .foregroundColor(.white)
-                        
                         Text(error.localizedDescription)
+                            .font(.subheadline)
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                        
                         Button("Retry") {
                             Task {
                                 await viewModel.fetchWatchlist()
                             }
                         }
-                        .foregroundColor(.white)
                         .padding()
-                        .background(Color.blue)
+                        .background(Color.white.opacity(0.15))
+                        .foregroundColor(.white)
                         .cornerRadius(12)
                     }
+                    .padding()
                 } else if viewModel.watchlistItems.isEmpty {
                     VStack(spacing: 24) {
                         Image(systemName: "film")
-                            .font(.system(size: 64))
+                            .font(.system(size: 40))
                             .foregroundColor(.gray)
                         
                         Text("Your Watchlist is Empty")
-                            .font(.title2)
+                            .font(.headline)
                             .foregroundColor(.white)
                         
                         Text("Start adding movies and TV shows to your watchlist to see them here.")
+                            .font(.subheadline)
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal)
                         
-                        Button("Discover Movies") {
-                            dismiss()
-                        }
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(12)
+//                        Button("Discover Movies") {
+//                            dismiss()
+//                        }
+//                        .foregroundColor(.white)
+//                        .padding()
+//                        .background(Color.blue)
+//                        .cornerRadius(12)
                     }
+                    .padding()
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
@@ -97,10 +96,10 @@ struct WatchlistView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .foregroundColor(.white)
+//                    Button("Done") {
+//                        dismiss()
+//                    }
+//                    .foregroundColor(.white)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {

@@ -6,6 +6,17 @@ struct OtherUserProfileView: View {
     @StateObject private var friendVM = ProfileFriendViewModel()
     @StateObject private var friendListVM = FriendsListViewModel()
     
+    private var preferredColor: Color {
+        switch AuthManager.shared.userProfile?.color {
+        case "red": return .red
+        case "yellow": return .yellow
+        case "green": return .green
+        case "blue": return .blue
+        case "pink": return .pink
+        default: return .white
+        }
+    }
+    
     
     var body: some View {
         NavigationStack {
@@ -147,27 +158,23 @@ struct OtherUserProfileView: View {
                     .foregroundColor(.black)
                     .cornerRadius(16)
                 case "pending_sent":
-                    HStack(spacing: 12) {
-                        Button("Request Sent") {}
-                            .disabled(true)
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.white)
-                            .foregroundColor(.black)
-                            .cornerRadius(16)
-                            // .buttonStyle(.bordered)
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock")
+                            .foregroundColor(.white)
+                            .font(.system(size: 16))
+                        
+                        Text("Request sent")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Spacer()
+                        
                         if friendListVM.isLoading {
-                            Button("Canceling...") {}
-                                .disabled(true)
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.themePrimaryGrey)
+                            Text("Canceling...")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
                                 .foregroundColor(.white.opacity(0.6))
-                                .cornerRadius(16)
                         } else {
-                            Button("Cancel") {
+                            Button("Cancel?") {
                                 if let reqId = friendVM.pendingRequestId {
                                     Task {
                                         await friendListVM.cancelSentRequest(requestId: reqId)
@@ -176,14 +183,15 @@ struct OtherUserProfileView: View {
                                     }
                                 }
                             }
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.themePrimaryGrey)
-                            .foregroundColor(.white)
-                            .cornerRadius(16)
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(preferredColor)
+                            .buttonStyle(PlainButtonStyle())
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: "393B3D").opacity(0.3))
+                    .cornerRadius(16)
                 case "pending_received":
                     HStack(spacing: 12) {
                         Button("Accept") {

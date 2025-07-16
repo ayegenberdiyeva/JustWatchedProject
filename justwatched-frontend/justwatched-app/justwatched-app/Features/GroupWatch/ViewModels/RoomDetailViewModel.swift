@@ -13,6 +13,7 @@ class RoomDetailViewModel: ObservableObject {
     
     private let roomService = RoomService()
     private let webSocketManager = RoomWebSocketManager()
+    private let cacheManager = CacheManager.shared
     
     var isOwner: Bool {
         guard let room = room else { return false }
@@ -124,9 +125,36 @@ class RoomDetailViewModel: ObservableObject {
     }
     
     func fetchRecommendations(roomId: String, jwt: String) async {
+        // First, try to load from cache
+        if let cachedRecommendations = cacheManager.getCachedRoomRecommendations(for: roomId) {
+            // Convert cached movies to room recommendations
+            self.recommendations = cachedRecommendations.map { movie in
+                RoomRecommendation(
+                    movieId: String(movie.id),
+                    title: movie.title,
+                    posterPath: movie.posterPath,
+                    groupScore: 0.0,
+                    reasons: [],
+                    participantsWhoLiked: []
+                )
+            }
+        }
+        
         do {
             let response = try await roomService.fetchRecommendations(roomId: roomId, jwt: jwt)
             recommendations = response.recommendations
+            
+            // Cache the recommendations (convert to Movie objects for caching)
+            let movies = response.recommendations.map { rec in
+                Movie(
+                    id: Int(rec.movieId) ?? 0,
+                    title: rec.title,
+                    posterPath: rec.posterPath,
+                    releaseDate: nil,
+                    overview: nil
+                )
+            }
+            cacheManager.cacheRoomRecommendations(movies, for: roomId)
         } catch let networkError as NetworkError {
             if networkError.errorDescription?.contains("404") == true {
                 // No recommendations yet, this is normal

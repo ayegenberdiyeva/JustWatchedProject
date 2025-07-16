@@ -12,6 +12,7 @@ class FriendsListViewModel: ObservableObject {
     @Published var userDisplayNames: [String: String] = [:]
     
     private let friendsService = FriendsService.shared
+    private let cacheManager = CacheManager.shared
     
     private func fetchDisplayName(for userId: String) async -> String {
         if let cached = userDisplayNames[userId] { return cached }
@@ -25,9 +26,36 @@ class FriendsListViewModel: ObservableObject {
     }
     
     func loadFriends() async {
+        // First, try to load from cache
+        if let cachedFriends = cacheManager.getCachedFriendsList() {
+            // Convert UserProfile to Friend objects
+            self.friends = cachedFriends.map { userProfile in
+                Friend(
+                    user_id: userProfile.userId,
+                    display_name: userProfile.displayName ?? "Unknown",
+                    color: userProfile.color ?? "white"
+                )
+            }
+        }
+        
         isLoading = true; error = nil
         do {
             friends = try await friendsService.getFriends()
+            
+            // Cache the friends list (convert to UserProfile objects for caching)
+            let userProfiles = friends.map { friend in
+                UserProfile(
+                    userId: friend.user_id,
+                    displayName: friend.display_name,
+                    email: nil,
+                    bio: nil,
+                    color: friend.color,
+                    createdAt: nil,
+                    personalRecommendations: nil,
+                    isFriend: true
+                )
+            }
+            cacheManager.cacheFriendsList(userProfiles)
         } catch {
             self.error = error.localizedDescription
         }

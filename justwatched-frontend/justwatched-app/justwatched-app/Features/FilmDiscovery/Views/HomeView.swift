@@ -27,7 +27,7 @@ struct HomeView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             headerSection
-                                .frame(height: 110)
+                                .frame(height: 130)
                             
                             
 
@@ -120,7 +120,8 @@ struct HomeView: View {
                 Text("Personalized recommendations based on your taste")
                     .font(.body)
                     .foregroundColor(.white)
-                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .leading)

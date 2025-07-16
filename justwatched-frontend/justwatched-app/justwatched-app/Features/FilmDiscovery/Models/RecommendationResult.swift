@@ -10,6 +10,16 @@ struct RecommendationResult: Codable, Identifiable, Hashable {
     
     // Create a unique ID by combining movie_id and title
     var id: String { "\(movieId)_\(title)" }
+    
+    // Custom initializer for creating from Movie objects
+    init(movieId: String, title: String, posterPath: String?, confidenceScore: Double? = nil, reasoning: String? = nil, mediaType: String = "movie") {
+        self.movieId = movieId
+        self.title = title
+        self.posterPath = posterPath
+        self.confidenceScore = confidenceScore
+        self.reasoning = reasoning
+        self.mediaType = mediaType
+    }
 
     enum CodingKeys: String, CodingKey {
         case movieId = "movie_id"

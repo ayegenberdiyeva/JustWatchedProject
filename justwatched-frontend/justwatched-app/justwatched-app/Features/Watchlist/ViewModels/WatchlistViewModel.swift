@@ -10,8 +10,15 @@ class WatchlistViewModel: ObservableObject {
     
     private let watchlistService = WatchlistService.shared
     private let authManager = AuthManager.shared
+    private let cacheManager = CacheManager.shared
     
     func fetchWatchlist() async {
+        // First, try to load from cache
+        if let cachedWatchlist = cacheManager.getCachedWatchlist() {
+            self.watchlistItems = cachedWatchlist
+            self.totalCount = cachedWatchlist.count
+        }
+        
         guard let jwt = authManager.jwt else {
             error = WatchlistError.itemNotInWatchlist // Use as generic error
             return
@@ -26,6 +33,9 @@ class WatchlistViewModel: ObservableObject {
             let response = try await watchlistService.getWatchlist(jwt: jwt)
             self.watchlistItems = response.items
             self.totalCount = response.totalCount
+            
+            // Cache the watchlist
+            cacheManager.cacheWatchlist(response.items)
         } catch let e as LocalizedError {
             self.error = e
         } catch {
@@ -52,6 +62,9 @@ class WatchlistViewModel: ObservableObject {
             watchlistItems.append(newItem)
             totalCount += 1
             
+            // Update cache
+            cacheManager.cacheWatchlist(watchlistItems)
+            
         } catch let e as LocalizedError {
             self.error = e
         } catch {
@@ -71,6 +84,9 @@ class WatchlistViewModel: ObservableObject {
             // Remove from local array
             watchlistItems.removeAll { $0.mediaId == mediaId }
             totalCount = max(0, totalCount - 1)
+            
+            // Update cache
+            cacheManager.cacheWatchlist(watchlistItems)
             
         } catch let e as LocalizedError {
             self.error = e
