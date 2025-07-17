@@ -415,46 +415,23 @@ class NetworkService {
             URLQueryItem(name: "include_private", value: includePrivate ? "true" : "false")
         ]
         
-        print("🔍 Collections request URL: \(urlComponents.url?.absoluteString ?? "nil")")
-        print("🔍 Include private: \(includePrivate)")
-        print("🔍 JWT Token: \(token.prefix(20))...")
-        
         var request = URLRequest(url: urlComponents.url!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        print("🔍 Sending request...")
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Invalid response type")
             throw NetworkError.invalidResponse
         }
         
-        print("🔍 Response status code: \(httpResponse.statusCode)")
-        
         if httpResponse.statusCode != 200 {
-            print("❌ Request failed with status code: \(httpResponse.statusCode)")
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ Error response: \(errorString)")
-            }
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
         }
         
-        print("✅ Request successful, decoding response...")
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        do {
-            let result = try decoder.decode(CollectionsResponse.self, from: data)
-            print("✅ Successfully decoded response with \(result.collections.count) collections and \(result.totalReviews) total reviews")
-            return result
-        } catch {
-            print("❌ Decoding error: \(error)")
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("❌ Raw JSON response: \(jsonString)")
-            }
-            throw error
-        }
+        return try decoder.decode(CollectionsResponse.self, from: data)
     }
 
     func createCollection(name: String, description: String?, visibility: String) async throws -> Collection {

@@ -3,7 +3,6 @@ import SwiftUI
 struct GalleryReviewCard: View {
     let review: Review
     var onOpen: () -> Void
-    @State private var navigateToReviewDetail = false
     private let reviewTruncationLimit = 50
 
     var body: some View {
@@ -107,10 +106,7 @@ struct GalleryReviewCard: View {
         .cornerRadius(24)
         .padding(.vertical, 8)
         .onTapGesture {
-            navigateToReviewDetail = true
-        }
-        .navigationDestination(isPresented: $navigateToReviewDetail) {
-            ReviewDetailSheet(review: review, onReviewDeleted: onOpen)
+            onOpen()
         }
     }
     

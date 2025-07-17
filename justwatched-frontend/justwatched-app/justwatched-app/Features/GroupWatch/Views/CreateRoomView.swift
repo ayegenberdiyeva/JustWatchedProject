@@ -83,7 +83,7 @@ struct CreateRoomView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text("Create ")
-                        .font(.title2)
+                        .font(.system(size: 32, weight: .medium))
                         .foregroundStyle(
                             AngularGradient(
                                 gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
@@ -94,7 +94,7 @@ struct CreateRoomView: View {
                         )
                         .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                     Text("Room")
-                        .font(.title2.bold())
+                        .font(.system(size: 32, weight: .heavy))
                         .foregroundStyle(
                             AngularGradient(
                                 gradient: Gradient(colors: AnimatedPaletteGradientBackground.palette(for: colorValue)),
@@ -106,7 +106,7 @@ struct CreateRoomView: View {
                         .animation(.linear(duration: 2).repeatForever(autoreverses: false), value: gradientAngle)
                 }
                 Text("Set up a new group watch session")
-                    .font(.footnote)
+                    .font(.body)
                     .foregroundColor(.white)
                     .lineLimit(2)
             }

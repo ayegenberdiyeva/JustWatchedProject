@@ -12,6 +12,7 @@ struct FriendsFeedView: View {
     @State private var friendsReviewsData: FriendsReviewsResponse? = nil
     @State private var isLoadingFriendReviews = false
     @State private var incomingRequestsCount = 0
+    @State private var selectedReview: Review? = nil
     
     private var preferredColor: Color {
         switch AuthManager.shared.userProfile?.color {
@@ -109,15 +110,7 @@ struct FriendsFeedView: View {
                     .padding(.horizontal)
                     Spacer()
                     
-                    if isLoading {
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .tint(.white)
-                                .scaleEffect(1.5)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.top, 40)
-                        }
-                    } else if let error = error {
+                    if let error = error {
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")
                                 .font(.system(size: 40))
@@ -174,7 +167,8 @@ struct FriendsFeedView: View {
                                 friend: selectedFriend,
                                 friendData: friendData,
                                 isLoading: isLoadingFriendReviews,
-                                onRefresh: loadFriendsFeed
+                                onRefresh: loadFriendsFeed,
+                                selectedReview: $selectedReview
                             )
                         } else {
                             // Default view when no friend is selected
@@ -216,14 +210,20 @@ struct FriendsFeedView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { 
-                        Task { 
-                            await loadFriendsFeed()
-                            await loadPendingFriendRequests()
+                    if isLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                    } else {
+                        Button(action: { 
+                            Task { 
+                                await loadFriendsFeed()
+                                await loadPendingFriendRequests()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.white)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.white)
                     }
                 }
             }
@@ -235,6 +235,11 @@ struct FriendsFeedView: View {
                 NavigationLink(destination: FriendsListView(), isActive: $navigateToFriendRequests) { EmptyView() }
                     .hidden()
             )
+            .navigationDestination(item: $selectedReview) { review in
+                ReviewDetailSheet(review: review, onReviewDeleted: {
+                    Task { await loadFriendsFeed() }
+                })
+            }
             .task {
                 if AuthManager.shared.isAuthenticated {
                     try? await AuthManager.shared.refreshUserProfile()
@@ -332,6 +337,11 @@ struct FriendsFeedView: View {
                 incomingRequestsCount = incomingRequests.count
             }
         } catch {
+            // Check if this is a cancellation error and ignore it
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                // Request was cancelled, this is normal when view disappears or multiple requests are made
+                return
+            }
             print("Error loading pending friend requests: \(error)")
         }
     }
@@ -345,22 +355,14 @@ struct FriendReviewsView: View {
     let friendData: FriendReviewsData
     let isLoading: Bool
     let onRefresh: () async -> Void
-    @State private var selectedReview: Review? = nil
+    @Binding var selectedReview: Review?
     @State private var showAddReview = false
     @State private var selectedReviewForAdd: Review? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             
-            if isLoading {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 40)
-                }
-            } else if friendData.collections.isEmpty {
+            if friendData.collections.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "film")
                         .font(.system(size: 50))
@@ -423,12 +425,6 @@ struct FriendReviewsView: View {
                 .scrollTargetBehavior(.viewAligned)
             }
         }
-        .sheet(item: $selectedReview) { review in
-            ReviewDetailSheet(review: review, onReviewDeleted: {
-                // Refresh the friends feed after deleting a review
-                Task { await onRefresh() }
-            })
-        }
         .sheet(isPresented: $showAddReview) {
             if let review = selectedReviewForAdd {
                 AddReviewView(
@@ -479,7 +475,6 @@ struct FriendReviewCard: View {
     let review: Review
     let onOpen: () -> Void
     let onAddReview: () -> Void
-    @State private var showFullReview = false
     
     private let preferredColor: Color = {
         switch AuthManager.shared.userProfile?.color {
@@ -531,7 +526,7 @@ struct FriendReviewCard: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Button("Read more") {
-                        showFullReview = true
+                        onOpen()
                     }
                     .font(.caption.bold())
                     .foregroundColor(Color(hex: "393B3D"))
@@ -615,8 +610,8 @@ struct FriendReviewCard: View {
         .background(Color.white.opacity(0.01))
         .cornerRadius(24)
         .padding(.vertical, 8)
-        .sheet(isPresented: $showFullReview) {
-            ReviewDetailSheet(review: review, onReviewDeleted: nil)
+        .onTapGesture {
+            onOpen()
         }
     }
 }

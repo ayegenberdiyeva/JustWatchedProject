@@ -55,10 +55,14 @@ struct ProfileView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                    } else {
                         Button(action: {
                             Task {
-                                await viewModel.fetchProfile()
+                                await fetchAllData()
                             }
                         }) {
                             Image(systemName: "arrow.clockwise")
@@ -75,14 +79,7 @@ struct ProfileView: View {
             }) {
                 EditProfileView(viewModel: EditProfileViewModel(profileViewModel: viewModel))
             }
-            .sheet(item: $selectedReview) { review in
-                ReviewDetailSheet(review: review, onReviewDeleted: {
-                    Task {
-                        await viewModel.fetchProfile()
-                        await fetchCollections()
-                    }
-                })
-            }
+
             .navigationDestination(isPresented: $showWatchlist) {
                 WatchlistView()
             }
@@ -92,12 +89,15 @@ struct ProfileView: View {
             .navigationDestination(isPresented: $navigateToSettings) {
                 SettingsView()
             }
+            .navigationDestination(item: $selectedReview) { review in
+                ReviewDetailSheet(review: review, onReviewDeleted: {
+                    Task {
+                        await fetchAllData()
+                    }
+                })
+            }
             .task {
-                await viewModel.fetchProfile()
-                await fetchCollections()
-                if AuthManager.shared.isAuthenticated {
-                    try? await AuthManager.shared.refreshUserProfile()
-                }
+                await fetchAllData()
             }
         }
     }
@@ -235,15 +235,7 @@ struct ProfileView: View {
                 .foregroundColor(.white)
                 .padding(.leading, 16)
             
-            if viewModel.isLoading {
-                HStack {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(1.5)
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-            } else if !viewModel.reviews.isEmpty {
+            if !viewModel.reviews.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 24) {
                         ForEach(viewModel.reviews, id: \.self) { review in
@@ -333,6 +325,28 @@ struct ProfileView: View {
                     .padding(.top, 8)
                     .padding(.leading, 16)
             }
+        }
+    }
+    
+    private func fetchAllData() async {
+        await withTaskGroup(of: Void.self) { group in
+            // Add task for fetching profile data (includes reviews)
+            group.addTask {
+                await viewModel.fetchProfile()
+            }
+            
+            // Add task for fetching collections
+            group.addTask {
+                await fetchCollections()
+            }
+            
+            // Wait for all tasks to complete
+            await group.waitForAll()
+        }
+        
+        // Refresh user profile after all data is fetched
+        if AuthManager.shared.isAuthenticated {
+            try? await AuthManager.shared.refreshUserProfile()
         }
     }
     

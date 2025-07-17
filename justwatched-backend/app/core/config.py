@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     JWT_AUDIENCE: str = "justwatched.app"
     JWT_ISSUER: str = "justwatched.api"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # External APIs
     TMDB_API_KEY: str

@@ -44,13 +44,7 @@ struct RoomListView: View {
                                     }
                             }
                             
-                            if viewModel.isLoading {
-                                                ProgressView()
-                    .tint(.white)
-                    .scaleEffect(1.5)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.top, 40)
-                            } else if let error = viewModel.error {
+                            if let error = viewModel.error {
                                 errorSection(error: error)
                             } else if viewModel.rooms.isEmpty {
                                 emptyStateSection
@@ -89,13 +83,19 @@ struct RoomListView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        if authManager.isAuthenticated, let jwt = authManager.jwt {
-                            Task { await viewModel.fetchRooms(jwt: jwt) }
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                    } else {
+                        Button(action: {
+                            if authManager.isAuthenticated, let jwt = authManager.jwt {
+                                Task { await viewModel.fetchRooms(jwt: jwt) }
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.white)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.white)
                     }
                 }
             }
@@ -215,6 +215,13 @@ struct RoomListView: View {
             .background(preferredColor)
             .foregroundColor(.white)
             .cornerRadius(12)
+
+            VStack(alignment: .leading, spacing: 8) {
+                InfoRow(icon: "popcorn", text: "Create a room")
+                InfoRow(icon: "person.2", text: "Invite friends to join")
+                InfoRow(icon: "sparkles", text: "Generate movie recommendations together")
+                InfoRow(icon: "hand.raised", text: "Vote on movie recommendations")
+            }
         }
         .padding()
         // .background(Color(hex: "393B3D").opacity(0.3))

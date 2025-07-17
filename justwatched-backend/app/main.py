@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.api.v1.api import api_router
 from app.api.v1.endpoints import websocket
 from app.core.config import settings
+from app.middleware.token_middleware import TokenMiddleware
 import os
 
 # Application Insights setup for production
@@ -26,6 +27,9 @@ app = FastAPI(
 # Add Application Insights middleware if connection string is available
 if os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"):
     app.add_middleware(FastAPIMiddleware)
+
+# Add token middleware for automatic token refresh
+app.add_middleware(TokenMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

@@ -112,6 +112,11 @@ struct FriendsListView: View {
                 viewModel.incomingRequests = incomingRequests
             }
         } catch {
+            // Check if this is a cancellation error and ignore it
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                // Request was cancelled, this is normal when view disappears or multiple requests are made
+                return
+            }
             print("Error loading pending friend requests: \(error)")
         }
     }

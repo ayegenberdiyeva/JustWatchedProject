@@ -32,13 +32,7 @@ struct HomeView: View {
                             
 
                             
-                            if viewModel.isLoading {
-                                                ProgressView()
-                    .tint(.white)
-                    .scaleEffect(1.5)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding(.top, 40)
-                            } else if let error = viewModel.error {
+                            if let error = viewModel.error {
                                 errorSection(error: error)
                             } else if viewModel.recommendations.isEmpty {
                                 emptyStateSection
@@ -64,13 +58,19 @@ struct HomeView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        if authManager.isAuthenticated, let jwt = authManager.jwt {
-                            Task { await viewModel.fetchRecommendations(jwt: jwt) }
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                    } else {
+                        Button(action: {
+                            if authManager.isAuthenticated, let jwt = authManager.jwt {
+                                Task { await viewModel.fetchRecommendations(jwt: jwt) }
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.white)
                         }
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.white)
                     }
                 }
             }

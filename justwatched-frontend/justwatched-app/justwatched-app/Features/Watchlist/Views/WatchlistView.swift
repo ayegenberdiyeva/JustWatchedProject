@@ -209,14 +209,6 @@ struct WatchlistItemCard: View {
                         .lineLimit(2)
                     
                     Spacer()
-                    
-                    Text(item.mediaType.uppercased())
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(4)
                 }
                 
                 Text("Added \(formatDate(item.addedAt))")
@@ -226,25 +218,25 @@ struct WatchlistItemCard: View {
                 Spacer()
                 
                 // Action Buttons
-                HStack(spacing: 12) {
+                HStack(spacing: 20) {
                     Button(action: onMarkWatched) {
                         Label("Mark Watched", systemImage: "checkmark.circle")
                             .font(.caption)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
+                            .foregroundColor(.black)
                             .padding(.vertical, 6)
-                            .background(Color.green)
-                            .cornerRadius(8)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white)
+                            .cornerRadius(12)
                     }
-                    
+
                     Button(action: { showRemoveAlert = true }) {
                         Label("Remove", systemImage: "trash")
                             .font(.caption)
                             .foregroundColor(.white)
-                            .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color.red)
-                            .cornerRadius(8)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.red.opacity(0.2))
+                            .cornerRadius(12)
                     }
                 }
             }
