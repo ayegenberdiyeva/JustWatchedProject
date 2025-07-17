@@ -402,7 +402,6 @@ class RoomWebSocketManager: ObservableObject {
             return
         }
         
-        print("🔍 Connecting to WebSocket: \(wsURL)")
         
         var request = URLRequest(url: url)
         request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")

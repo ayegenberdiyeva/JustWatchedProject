@@ -4,39 +4,92 @@ import Combine
 class AuthManager: ObservableObject {
     static let shared = AuthManager()
     private init() {
-        // Load saved JWT if exists
-        if let savedJWT = UserDefaults.standard.string(forKey: jwtKey) {
-            self.jwt = savedJWT
-        }
+        // Load saved tokens if they exist
+        loadTokensFromStorage()
     }
 
     // MARK: - Storage Keys
-    private let jwtKey = "auth_jwt_token"
+    private let accessTokenKey = "auth_access_token"
+    private let refreshTokenKey = "auth_refresh_token"
+    private let tokenExpiryKey = "auth_token_expiry"
 
     // MARK: - Published State
     @Published var jwt: String? {
-        didSet { saveJWT(jwt) }
+        didSet { 
+            if let token = jwt {
+                saveAccessToken(token)
+            } else {
+                clearTokens()
+            }
+        }
     }
     @Published var userProfile: UserProfile?
+    
+    // MARK: - Private Token Management
+    private var refreshToken: String? {
+        get { UserDefaults.standard.string(forKey: refreshTokenKey) }
+        set { 
+            if let token = newValue {
+                UserDefaults.standard.set(token, forKey: refreshTokenKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: refreshTokenKey)
+            }
+        }
+    }
+    
+    private var tokenExpiry: Date? {
+        get { 
+            let timestamp = UserDefaults.standard.double(forKey: tokenExpiryKey)
+            return timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : nil
+        }
+        set { 
+            if let date = newValue {
+                UserDefaults.standard.set(date.timeIntervalSince1970, forKey: tokenExpiryKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: tokenExpiryKey)
+            }
+        }
+    }
 
     // MARK: - Auth State
     var isAuthenticated: Bool {
         guard let jwt = jwt, !jwt.isEmpty else { return false }
-        return !isJWTExpired(jwt)
+        return !isTokenExpired()
+    }
+    
+    // MARK: - Token Expiration
+    private func isTokenExpired() -> Bool {
+        guard let expiry = tokenExpiry else { return true }
+        return Date() >= expiry
+    }
+    
+    private func shouldRefreshToken(bufferMinutes: Int = 5) -> Bool {
+        guard let expiry = tokenExpiry else { return true }
+        let bufferTime = TimeInterval(bufferMinutes * 60)
+        return Date() >= (expiry - bufferTime)
     }
 
     // MARK: - JWT Storage (UserDefaults for now)
-    private func saveJWT(_ token: String?) {
-        if let token = token {
-            UserDefaults.standard.set(token, forKey: jwtKey)
-            // TODO: In production, store in Keychain instead of UserDefaults for security.
-        } else {
-            UserDefaults.standard.removeObject(forKey: jwtKey)
-        }
+    private func saveAccessToken(_ token: String) {
+        UserDefaults.standard.set(token, forKey: accessTokenKey)
+        // TODO: In production, store in Keychain instead of UserDefaults for security.
     }
-    private func loadJWT() -> String? {
+    private func loadAccessToken() -> String? {
         // TODO: In production, load from Keychain.
-        return UserDefaults.standard.string(forKey: jwtKey)
+        return UserDefaults.standard.string(forKey: accessTokenKey)
+    }
+
+    private func clearTokens() {
+        UserDefaults.standard.removeObject(forKey: accessTokenKey)
+        UserDefaults.standard.removeObject(forKey: refreshTokenKey)
+        UserDefaults.standard.removeObject(forKey: tokenExpiryKey)
+    }
+
+    private func loadTokensFromStorage() {
+        self.jwt = loadAccessToken()
+        // The refresh token and expiry are not directly managed by the @Published jwt property
+        // as they are not part of the JWT itself.
+        // If you need to manage them, you'd need to load them here or pass them to the @Published property.
     }
 
     // MARK: - User Profile Management (No Caching)
@@ -60,15 +113,47 @@ class AuthManager: ObservableObject {
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
+    // MARK: - Token Management
+    func setTokens(from response: AuthResponse) async {
+        await MainActor.run {
+            self.jwt = response.access_token
+            self.refreshToken = response.refresh_token
+            self.tokenExpiry = Date().addingTimeInterval(TimeInterval(response.expires_in))
+        }
+    }
+    
+    func refreshTokens() async throws {
+        guard let refreshToken = refreshToken else {
+            throw AuthError.notAuthenticated
+        }
+        
+        let network = NetworkService.shared
+        let response = try await network.refreshTokens(refreshToken: refreshToken)
+        await setTokens(from: response)
+    }
+    
+    func getValidAccessToken() async throws -> String {
+        if shouldRefreshToken() {
+            try await refreshTokens()
+        }
+        
+        guard let token = jwt else {
+            throw AuthError.notAuthenticated
+        }
+        
+        return token
+    }
+
     // MARK: - Public API
     func loadFromStorage() {
-        self.jwt = loadJWT()
+        loadTokensFromStorage()
     }
 
     func login(email: String, password: String) async throws {
         let network = NetworkService.shared
         let auth = try await network.login(email: email, password: password)
-        await MainActor.run { self.jwt = auth.access_token }
+        await setTokens(from: auth)
+        
         // Try to get existing profile, create one if it doesn't exist
         do {
             try await refreshUserProfile()
@@ -82,7 +167,6 @@ class AuthManager: ObservableObject {
                 if let payload = decodeJWTPayload(auth.access_token),
                    let userId = payload["sub"] as? String {
                     let profile = try await network.createUserProfile(
-                        jwt: auth.access_token,
                         userId: userId,
                         displayName: "",
                         email: email,
@@ -102,13 +186,11 @@ class AuthManager: ObservableObject {
     func register(email: String, password: String, displayName: String = "") async throws {
         let network = NetworkService.shared
         let auth = try await network.register(email: email, password: password)
-        await MainActor.run { self.jwt = auth.access_token }
+        await setTokens(from: auth)
         
-        print("🔍 Registration successful, creating user profile...")
         
         // Use PATCH /api/v1/users/me since POST /api/v1/users fails due to backend architecture
         let profile = try await network.updateUserProfile(
-            jwt: auth.access_token,
             displayName: displayName.isEmpty ? email : displayName,
             email: email,
             bio: "No bio yet",
@@ -128,17 +210,14 @@ class AuthManager: ObservableObject {
     // }
 
     func refreshUserProfile() async throws {
-        guard let jwt = jwt else { throw AuthError.notAuthenticated }
         let network = NetworkService.shared
-        let profile = try await network.getCurrentUserProfile(jwt: jwt)
+        let profile = try await network.getCurrentUserProfile()
         await MainActor.run { self.userProfile = profile }
     }
 
     func updateCurrentUserProfile(displayName: String, email: String, bio: String?) async throws {
-        guard let jwt = jwt else { throw AuthError.notAuthenticated }
         let network = NetworkService.shared
         _ = try await network.updateCurrentUserProfile(
-            jwt: jwt,
             displayName: displayName,
             email: email,
             bio: bio ?? "No bio yet"
@@ -149,7 +228,7 @@ class AuthManager: ObservableObject {
     func signIn(withJWT jwt: String) {
         Task { @MainActor in
             self.jwt = jwt
-            UserDefaults.standard.set(jwt, forKey: jwtKey)
+            saveAccessToken(jwt)
         }
     }
     
@@ -157,7 +236,7 @@ class AuthManager: ObservableObject {
         Task { @MainActor in
             self.jwt = nil
             self.userProfile = nil
-            UserDefaults.standard.removeObject(forKey: jwtKey)
+            clearTokens()
         }
     }
     
@@ -171,7 +250,7 @@ class AuthManager: ObservableObject {
         await MainActor.run {
             self.jwt = nil
             self.userProfile = nil
-            UserDefaults.standard.removeObject(forKey: jwtKey)
+            clearTokens()
         }
         
         return response

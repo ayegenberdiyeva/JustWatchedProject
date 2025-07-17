@@ -79,7 +79,6 @@ class FriendsListViewModel: ObservableObject {
                 }
             }
             
-            print("🔍 Loaded \(incomingRequests.count) incoming requests and \(sentRequests.count) sent requests")
         } catch {
             self.error = error.localizedDescription
         }

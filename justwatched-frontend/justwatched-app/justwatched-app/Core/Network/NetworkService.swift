@@ -1,10 +1,21 @@
 import Foundation
 
+extension URLRequest {
+    init(url: URL, method: String, body: Data?) {
+        self.init(url: url)
+        self.httpMethod = method
+        self.httpBody = body
+        self.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    }
+}
+
 struct EmptyResponse: Codable {}
 
 struct AuthResponse: Codable {
     let access_token: String
+    let refresh_token: String
     let user_id: String
+    let expires_in: Int
 }
 
 struct APIError: Codable, LocalizedError {
@@ -49,19 +60,38 @@ class NetworkService {
             throw NetworkError.invalidURL
         }
         
+        // Get a valid access token (refresh if needed)
+        let accessToken = try await authManager.getValidAccessToken()
+        
         var request = URLRequest(url: url)
         request.httpMethod = method
-        
-        if let token = authManager.jwt {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         
         if let body = body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         
-        return try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // Check for token refresh headers
+        if let httpResponse = response as? HTTPURLResponse {
+            let newAccessToken = httpResponse.value(forHTTPHeaderField: "x-new-access-token")
+            let newRefreshToken = httpResponse.value(forHTTPHeaderField: "x-new-refresh-token")
+            
+            if let newAccess = newAccessToken, let newRefresh = newRefreshToken {
+                // Update tokens with new ones from response headers
+                let authResponse = AuthResponse(
+                    access_token: newAccess,
+                    refresh_token: newRefresh,
+                    user_id: "",
+                    expires_in: 3600
+                )
+                await authManager.setTokens(from: authResponse)
+            }
+        }
+        
+        return (data, response)
     }
     
     // MARK: - Authentication Error Handling
@@ -192,36 +222,103 @@ class NetworkService {
         let url = URL(string: baseURL + "/auth/register")!
         let body = ["email": email, "password": password]
         
-        // Debug: Print registration request
-        print("🔍 Registration request body:")
-        print(body)
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, method: "POST", body: jsonData))
         
-        let response: AuthResponse = try await post(url: url, body: body)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
         
-        // Debug: Print registration response
-        print("✅ Registration response:")
-        print("Access token: \(response.access_token)")
-        print("User ID: \(response.user_id)")
-        
-        return response
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(AuthResponse.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
         let url = URL(string: baseURL + "/auth/login")!
         let body = ["email": email, "password": password]
-        return try await post(url: url, body: body)
+        
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, method: "POST", body: jsonData))
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+        
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(AuthResponse.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
+    }
+    
+    func refreshTokens(refreshToken: String) async throws -> AuthResponse {
+        let url = URL(string: baseURL + "/auth/refresh")!
+        let body = ["refresh_token": refreshToken]
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, method: "POST", body: jsonData))
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+        
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(AuthResponse.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
     }
 
     func requestPasswordReset(email: String) async throws {
         let url = URL(string: baseURL + "/auth/request-password-reset")!
         let body = ["email": email]
-        let _: EmptyResponse = try await post(url: url, body: body)
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, method: "POST", body: jsonData))
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+        
+        if !(200..<300).contains(httpResponse.statusCode) {
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
     }
 
     // MARK: - User Profile
-    func createUserProfile(jwt: String, userId: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
-        let url = URL(string: baseURL + "/users")!
-        
+    func createUserProfile(userId: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
         // Include user_id in the request to link to the auth record
         let body: [String: Any] = [
             "user_id": userId,
@@ -231,29 +328,15 @@ class NetworkService {
             "color": color ?? "red"
         ]
         
-        // Debug: Print the request body
         let jsonData = try JSONSerialization.data(withJSONObject: body)
-        if let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("🔍 Creating user profile with body:")
-            print(jsonString)
-        }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        request.httpBody = jsonData
+        let (data, response) = try await authorizedRequest("/users", method: "POST", body: jsonData)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidResponse
         }
         
-        // Debug: Print response
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("🔍 Backend response (\(httpResponse.statusCode)):")
-            print(responseString)
-        }
+
         
         if (200..<300).contains(httpResponse.statusCode) {
             do {
@@ -270,28 +353,15 @@ class NetworkService {
         }
     }
     
-    func updateUserProfile(jwt: String, displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
-        let url = URL(string: baseURL + "/users/me")!
+    func updateUserProfile(displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
         let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, color: color)
         
-        // Debug: Print the request body
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        if let jsonData = try? encoder.encode(body),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("🔍 Updating user profile with body:")
-            print(jsonString)
-        }
         
-        return try await patch(url: url, body: body, jwt: jwt)
+        return try await patch(url: URL(string: baseURL + "/users/me")!, body: body)
     }
 
-    func getCurrentUserProfile(jwt: String) async throws -> UserProfile {
-        let url = URL(string: baseURL + "/users/me")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+    func getCurrentUserProfile() async throws -> UserProfile {
+        let (data, response) = try await authorizedRequest("/users/me")
         
         // Handle authentication errors
         await handleAuthenticationError(response)
@@ -303,22 +373,34 @@ class NetworkService {
         return profile
     }
 
-    func updateCurrentUserProfile(jwt: String, displayName: String?, email: String?, bio: String?) async throws -> UserProfile {
+    func updateCurrentUserProfile(displayName: String?, email: String?, bio: String?) async throws -> UserProfile {
         let url = URL(string: baseURL + "/users/me")!
         let body = UserProfileRequest(display_name: displayName ?? "", email: email ?? "", bio: bio, color: nil)
-        return try await patch(url: url, body: body, jwt: jwt)
+        return try await patch(url: url, body: body)
     }
 
     // MARK: - Movies
-    func getMovieDetails(movieId: String, jwt: String) async throws -> Movie {
-        let url = URL(string: baseURL + "/movies/\(movieId)")!
-        return try await get(url: url, jwt: jwt)
+    func getMovieDetails(movieId: String) async throws -> Movie {
+        let (data, response) = try await authorizedRequest("/movies/\(movieId)")
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        
+        return try JSONDecoder().decode(Movie.self, from: data)
     }
 
     // MARK: - Reviews
-    func getMyReviews(jwt: String) async throws -> [Review] {
-        let url = URL(string: baseURL + "/reviews/users/me/reviews")!
-        return try await get(url: url, jwt: jwt)
+    func getMyReviews() async throws -> [Review] {
+        let (data, response) = try await authorizedRequest("/reviews/users/me/reviews")
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode([Review].self, from: data)
     }
 
     // MARK: - Search History
@@ -477,30 +559,27 @@ class NetworkService {
     func deleteCollection(collectionId: String) async throws {
         guard let token = authManager.jwt else { throw NetworkError.invalidURL }
         let url = URL(string: baseURL + "/collections/\(collectionId)")!
-        print("🗑️ DELETE request URL: \(url)")
-        print("🗑️ Collection ID: \(collectionId)")
-        print("🗑️ JWT Token: \(token.prefix(20))...")
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        print("🗑️ Sending DELETE request...")
+
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ Invalid response type")
+
             throw NetworkError.invalidResponse
         }
         
-        print("🗑️ Response status code: \(httpResponse.statusCode)")
+
         
         if httpResponse.statusCode == 200 {
-            print("✅ Collection deleted successfully")
+
         } else {
-            print("❌ Delete failed with status code: \(httpResponse.statusCode)")
+
             if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ Error response: \(errorString)")
+
             }
             throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
         }
@@ -589,26 +668,50 @@ class NetworkService {
         return try await send(request: request)
     }
 
-    private func post<T: Decodable, B: Encodable>(url: URL, body: B, jwt: String? = nil) async throws -> T {
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let jwt = jwt {
-            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+    private func post<T: Decodable, B: Encodable>(url: URL, body: B) async throws -> T {
+        let jsonData = try JSONEncoder().encode(body)
+        let (data, response) = try await authorizedRequest(url.path, method: "POST", body: jsonData)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
         }
-        request.httpBody = try JSONEncoder().encode(body)
-        return try await send(request: request)
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(T.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
     }
 
-    private func patch<T: Decodable, B: Encodable>(url: URL, body: B, jwt: String? = nil) async throws -> T {
-        var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let jwt = jwt {
-            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+    private func patch<T: Decodable, B: Encodable>(url: URL, body: B) async throws -> T {
+        let jsonData = try JSONEncoder().encode(body)
+        let (data, response) = try await authorizedRequest(url.path, method: "PATCH", body: jsonData)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
         }
-        request.httpBody = try JSONEncoder().encode(body)
-        return try await send(request: request)
+        if (200..<300).contains(httpResponse.statusCode) {
+            do {
+                return try JSONDecoder().decode(T.self, from: data)
+            } catch {
+                throw NetworkError.decodingFailed(error)
+            }
+        } else {
+
+            if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
+                throw apiError
+            } else {
+                throw NetworkError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+        }
     }
 
     private func send<T: Decodable>(request: URLRequest) async throws -> T {
@@ -623,12 +726,7 @@ class NetworkService {
                 throw NetworkError.decodingFailed(error)
             }
         } else {
-            // Debug: Print error response
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ Backend error response (\(httpResponse.statusCode)):")
-                print(errorString)
-            }
-            
+
             if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
                 throw apiError
             } else {
@@ -648,15 +746,13 @@ class NetworkService {
         guard let url = urlComponents.url else {
             throw NetworkError.invalidURL
         }
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        if let token = authManager.jwt {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        let (data, response) = try await authorizedRequest(url.path + "?query=\(query)&search_type=\(searchType)")
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
+        
         if searchType == "movie" {
             let decoded = try JSONDecoder().decode(MovieSearchResponse.self, from: data)
             return decoded.results.map { .movie($0) }
@@ -669,35 +765,19 @@ class NetworkService {
     }
 
     func getOtherUserProfile(userId: String) async throws -> UserProfile {
-        let url = URL(string: baseURL + "/users/\(userId)")!
-        print("🔍 Getting other user profile for ID: \(userId)")
-        print("🔍 URL: \(url)")
         
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        if let jwt = authManager.jwt {
-            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await authorizedRequest("/users/\(userId)")
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            // Debug: Print error response
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ Backend error response (\((response as? HTTPURLResponse)?.statusCode ?? 0)):")
-                print(errorString)
-            }
+
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
         return try JSONDecoder().decode(UserProfile.self, from: data)
     }
 
     func searchUsers(displayName: String) async throws -> [UserSearchResult] {
-        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
-        var urlComponents = URLComponents(string: baseURL + "/users/search")!
-        urlComponents.queryItems = [URLQueryItem(name: "display_name", value: displayName)]
-        var request = URLRequest(url: urlComponents.url!)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        print("User search response:", String(data: data, encoding: .utf8) ?? "No data")
+        let (data, response) = try await authorizedRequest("/users/search?display_name=\(displayName)")
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -712,12 +792,8 @@ class NetworkService {
     }
     
     func fetchFriendsReviews() async throws -> FriendsReviewsResponse {
-        guard let token = authManager.jwt else { throw NetworkError.invalidURL }
-        let url = URL(string: baseURL + "/friends/reviews")!
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await authorizedRequest("/friends/reviews")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
@@ -731,36 +807,17 @@ class NetworkService {
         let url = URL(string: baseURL + "/users/\(userId)")!
         let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, color: color)
         
-        // Debug: Print the request body
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        if let jsonData = try? encoder.encode(body),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("🔍 Creating user profile with ID \(userId) and body:")
-            print(jsonString)
-        }
+
         
-        return try await post(url: url, body: body, jwt: nil) // No JWT needed for initial creation
+        return try await post(url: url, body: body) // No JWT needed for initial creation
     }
     
     // MARK: - Account Deletion
     func deleteAccount() async throws -> AccountDeletionResponse {
-        let url = URL(string: baseURL + "/users/me")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
-        
-        if let token = authManager.jwt {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await authorizedRequest("/users/me", method: "DELETE")
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            // Debug: Print error response
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("❌ Account deletion error response (\((response as? HTTPURLResponse)?.statusCode ?? 0)):")
-                print(errorString)
-            }
+
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
         

@@ -41,7 +41,6 @@ struct UserSearchView: View {
                 .onTapGesture { 
                     selectedUserId = user.user_id
                     navigateToProfile = true
-                    print("🔍 Selected user ID: \(user.user_id)")
                 }
             }
             .listStyle(.plain)

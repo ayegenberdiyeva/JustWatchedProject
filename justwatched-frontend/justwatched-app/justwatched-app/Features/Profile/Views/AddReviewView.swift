@@ -149,7 +149,6 @@ struct AddReviewView: View {
                 }
             }
         }
-        .ignoresSafeArea(.keyboard)
         .toolbar(.hidden, for: .tabBar)
     }
 
@@ -315,32 +314,30 @@ struct AddReviewView: View {
                 Text("Your Review")
                     .font(.headline.bold())
                     .foregroundColor(.white)
-                let outerHeight: CGFloat = 150
-                ZStack {
+                
+                ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.secondary.opacity(0.25))
-                    ZStack(alignment: .topLeading) {
-                        if viewModel.reviewText.isEmpty {
-                            Text("Write your review here...")
-                                .foregroundColor(.white.opacity(0.4))
-                                .font(.system(size: 19))
-                                .padding(EdgeInsets(top: 10, leading: 8, bottom: 0, trailing: 0))
-                                .multilineTextAlignment(.leading)
-                        }
-                        TextEditor(text: $viewModel.reviewText)
-                            .foregroundColor(.white)
-                            .accentColor(preferredColor)
+                    
+                    if viewModel.reviewText.isEmpty {
+                        Text("Write your review here...")
+                            .foregroundColor(.white.opacity(0.4))
                             .font(.system(size: 19))
-                            .scrollContentBackground(.hidden)
-                            .padding(4)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .background(Color.clear)
+                            .padding(.top, 16)
+                            .padding(.leading, 16)
+                            .allowsHitTesting(false)
                     }
-                    .padding(4)
+                    
+                    TextEditor(text: $viewModel.reviewText)
+                        .foregroundColor(.white)
+                        .accentColor(preferredColor)
+                        .font(.system(size: 19))
+                        .scrollContentBackground(.hidden)
+                        .background(Color.clear)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
                 }
-                .frame(height: outerHeight)
-                .frame(maxWidth: .infinity)
+                .frame(height: 150)
             }
             // Watched Date
             HStack(alignment: .center, spacing: 6) {

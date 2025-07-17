@@ -63,9 +63,6 @@ actor FriendsService {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body = FriendRequestPayload(to_user_id: userId)
         
-        // Debug: Print request details
-        print("🔍 Sending friend request to: \(url)")
-        print("🔍 Request body: \(body)")
         
         req.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await session.data(for: req)
@@ -73,13 +70,7 @@ actor FriendsService {
         // Handle authentication errors
         await handleAuthenticationError(response)
         
-        // Debug: Print response details
-        if let httpResponse = response as? HTTPURLResponse {
-            print("🔍 Friend request response status: \(httpResponse.statusCode)")
-        }
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("🔍 Friend request response body: \(responseString)")
-        }
+        
         
         return try JSONDecoder().decode(FriendRequest.self, from: data)
     }
