@@ -51,12 +51,12 @@ struct LoginView: View {
                             .foregroundColor(.red)
                     }
                     
-                    Button("Forgot Password?") {
-                        showResetPassword = true
-                    }
-                    .font(.footnote)
-                    .foregroundColor(Color(hex: "393B3D"))
-                    .padding(.top, -8)
+                    // Button("Forgot Password?") {
+                    //     showResetPassword = true
+                    // }
+                    // .font(.footnote)
+                    // .foregroundColor(Color(hex: "393B3D"))
+                    // .padding(.top, -8)
                     
                     Button(action: {
                         Task { await viewModel.login() }

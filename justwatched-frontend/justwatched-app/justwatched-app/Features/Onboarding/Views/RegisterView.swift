@@ -95,7 +95,7 @@ struct RegisterView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(.white)
-                            .foregroundColor(.themePrimaryDark)
+                            .foregroundColor(.black)
                             .cornerRadius(8)
                     }
                 }
