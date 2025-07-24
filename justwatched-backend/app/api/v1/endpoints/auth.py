@@ -4,9 +4,11 @@ from firebase_admin import auth as firebase_auth
 import requests
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, verify_token
+from app.crud.user_crud import UserCRUD
 from datetime import datetime, timedelta
 
 router = APIRouter()
+user_crud = UserCRUD()
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -50,6 +52,22 @@ async def register_user(data: RegisterRequest):
         raise HTTPException(status_code=400, detail=error_message)
     
     user_id = resp.json().get("localId")
+    
+    # Create user profile in Firestore
+    try:
+        profile_data = {
+            "user_id": user_id,
+            "email": data.email,
+            "display_name": f"user_{user_id[:8]}",  # Generate a default display name
+            "color": "red",  # Default color
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        await user_crud.create_user_profile(user_id, profile_data)
+    except Exception as e:
+        print(f"Failed to create user profile: {e}")
+        # Don't fail registration if profile creation fails
+        # User can create profile later
+    
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
     
