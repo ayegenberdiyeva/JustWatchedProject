@@ -18,7 +18,7 @@ class UserCRUD:
     async def is_display_name_taken(self, display_name: str, exclude_user_id: Optional[str] = None) -> bool:
         """Check if a display name is already taken by another user."""
         def check_name():
-            query = self.users_col.filter("display_name", "==", display_name).limit(1).stream()
+            query = self.users_col.where("display_name", op_string="==", value=display_name).limit(1).stream()
             doc = next(query, None)
             if doc and exclude_user_id and doc.id == exclude_user_id:
                 return False  # Same user, so name is not "taken"
@@ -44,7 +44,7 @@ class UserCRUD:
     async def login_user(self, login: UserLogin) -> Optional[UserProfile]:
         # WARNING: Password should be hashed and checked securely in production!
         def find_user():
-            query = self.users_col.filter("email", "==", login.email).filter("password", "==", login.password).limit(1).stream()
+            query = self.users_col.where("email", op_string="==", value=login.email).where("password", op_string="==", value=login.password).limit(1).stream()
             return next(query, None)
         doc: DocumentSnapshot = await run_in_threadpool(find_user)
         if doc and doc.exists:
@@ -111,7 +111,7 @@ class UserCRUD:
     async def get_user_by_display_name(self, display_name: str) -> Optional[Dict[str, Any]]:
         """Get user profile by display name (for finding users)."""
         def find_user():
-            query = self.users_col.filter("display_name", "==", display_name).limit(1).stream()
+            query = self.users_col.where("display_name", op_string="==", value=display_name).limit(1).stream()
             return next(query, None)
         
         doc = await run_in_threadpool(find_user)
