@@ -355,9 +355,7 @@ class NetworkService {
     
     func updateUserProfile(displayName: String, email: String, bio: String?, color: String? = "red") async throws -> UserProfile {
         let body = UserProfileRequest(display_name: displayName, email: email, bio: bio, color: color)
-        
-        
-        return try await patch(url: URL(string: baseURL + "/users/me")!, body: body)
+        return try await patch(endpoint: "/users/me", body: body)
     }
 
     func getCurrentUserProfile() async throws -> UserProfile {
@@ -374,9 +372,8 @@ class NetworkService {
     }
 
     func updateCurrentUserProfile(displayName: String?, email: String?, bio: String?) async throws -> UserProfile {
-        let url = URL(string: baseURL + "/users/me")!
         let body = UserProfileRequest(display_name: displayName ?? "", email: email ?? "", bio: bio, color: nil)
-        return try await patch(url: url, body: body)
+        return try await patch(endpoint: "/users/me", body: body)
     }
 
     // MARK: - Movies
@@ -691,10 +688,9 @@ class NetworkService {
         }
     }
 
-    private func patch<T: Decodable, B: Encodable>(url: URL, body: B) async throws -> T {
+    private func patch<T: Decodable, B: Encodable>(endpoint: String, body: B) async throws -> T {
         let jsonData = try JSONEncoder().encode(body)
-        let (data, response) = try await authorizedRequest(url.path, method: "PATCH", body: jsonData)
-        
+        let (data, response) = try await authorizedRequest(endpoint, method: "PATCH", body: jsonData)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NetworkError.invalidResponse
         }
@@ -705,7 +701,6 @@ class NetworkService {
                 throw NetworkError.decodingFailed(error)
             }
         } else {
-
             if let apiError = try? JSONDecoder().decode(APIError.self, from: data) {
                 throw apiError
             } else {
