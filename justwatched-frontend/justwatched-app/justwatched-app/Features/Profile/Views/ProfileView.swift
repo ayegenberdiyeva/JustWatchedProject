@@ -157,7 +157,7 @@ struct ProfileView: View {
             case "green": return .green
             case "blue": return .blue
             case "pink": return .pink
-            default: return .white
+            default: return .red
             }
         }()
         return HStack(spacing: 12) {
@@ -229,11 +229,11 @@ struct ProfileView: View {
     
     // --- GALLERY OF REVIEWS ---
     private var reviewsGallery: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .center, spacing: 8) {
             Text("Your Review Gallery")
                 .font(.headline)
                 .foregroundColor(.white)
-                .padding(.leading, 16)
+                .padding(.horizontal, 16)
             
             if !viewModel.reviews.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -253,18 +253,18 @@ struct ProfileView: View {
                 Text("No reviews yet.")
                     .foregroundColor(Color(hex: "393B3D"))
                     .padding(.top, 8)
-                    .padding(.leading, 16)
+                    .padding(.horizontal, 16)
             }
         }
     }
     
     // --- COLLECTIONS SECTION ---
     private var collectionsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .center, spacing: 16) {
             Text("Your Collections")
                 .font(.headline)
                 .foregroundColor(.white)
-                .padding(.leading, 16)
+                .padding(.horizontal, 16)
             
             if isLoadingCollections {
                 HStack {
@@ -309,7 +309,7 @@ struct ProfileView: View {
                                 } else {
                                     Text("No reviews in this collection yet")
                                         .foregroundColor(.gray)
-                                        .padding(.leading, 16)
+                                        .padding(.horizontal, 16)
                                         .padding(.top, 8)
                                 }
                             }
@@ -323,7 +323,7 @@ struct ProfileView: View {
                 Text("No collections yet.")
                     .foregroundColor(Color(hex: "393B3D"))
                     .padding(.top, 8)
-                    .padding(.leading, 16)
+                    .padding(.horizontal, 16)
             }
         }
     }

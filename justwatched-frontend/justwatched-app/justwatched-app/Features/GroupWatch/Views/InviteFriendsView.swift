@@ -19,7 +19,7 @@ struct InviteFriendsView: View {
         case "green": return .green
         case "blue": return .blue
         case "pink": return .pink
-        default: return .white
+        default: return .red
         }
     }
     

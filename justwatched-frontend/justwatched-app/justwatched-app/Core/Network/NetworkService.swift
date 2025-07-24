@@ -736,9 +736,10 @@ class NetworkService {
     }
 
     func searchMoviesOrTV(query: String, searchType: String) async throws -> [SearchResult] {
-        guard var urlComponents = URLComponents(string: baseURL + "/movies/search") else {
+        guard var urlComponents = URLComponents(string: baseURL) else {
             throw NetworkError.invalidURL
         }
+        urlComponents.path = "/movies/search"
         urlComponents.queryItems = [
             URLQueryItem(name: "query", value: query),
             URLQueryItem(name: "search_type", value: searchType)
@@ -746,13 +747,15 @@ class NetworkService {
         guard let url = urlComponents.url else {
             throw NetworkError.invalidURL
         }
-        
-        let (data, response) = try await authorizedRequest(url.path + "?query=\(query)&search_type=\(searchType)")
-        
+        // Build the endpoint as a relative path for authorizedRequest
+        var endpoint = urlComponents.path
+        if let query = urlComponents.percentEncodedQuery, !query.isEmpty {
+            endpoint += "?" + query
+        }
+        let (data, response) = try await authorizedRequest(endpoint)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw NetworkError.requestFailed(statusCode: (response as? HTTPURLResponse)?.statusCode ?? 500)
         }
-        
         if searchType == "movie" {
             let decoded = try JSONDecoder().decode(MovieSearchResponse.self, from: data)
             return decoded.results.map { .movie($0) }

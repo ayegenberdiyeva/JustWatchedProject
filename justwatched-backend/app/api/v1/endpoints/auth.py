@@ -46,6 +46,7 @@ async def register_user(data: RegisterRequest):
     if resp.status_code != 200:
         error_data = resp.json()
         error_message = error_data.get("error", {}).get("message", "Registration failed")
+        print(f"Firebase registration error: {error_message}")  # Debug log
         raise HTTPException(status_code=400, detail=error_message)
     
     user_id = resp.json().get("localId")
@@ -67,9 +68,17 @@ async def login_user(data: LoginRequest):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={settings.FIREBASE_API_KEY}"
     payload = {"email": data.email, "password": data.password, "returnSecureToken": True}
     resp = requests.post(url, json=payload)
-    if resp.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    if resp.status_code != 200:
+        error_data = resp.json()
+        error_message = error_data.get("error", {}).get("message", "Invalid credentials")
+        print(f"Firebase login error: {error_message}")  # Debug log
+        raise HTTPException(status_code=401, detail=error_message)
+    
+    # Check if email is verified
+    if not resp.json().get("emailVerified", False):
+        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox.")
+
     user_id = resp.json().get("localId")
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)

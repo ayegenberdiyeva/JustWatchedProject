@@ -27,7 +27,7 @@ struct WelcomeView: View {
                             .cornerRadius(8)
                     }
                     Button(action: { showRegister = true }) {
-                        Text("Sign in")
+                        Text("Sign up")
                             .bold()
                             .frame(maxWidth: .infinity)
                             .padding()
