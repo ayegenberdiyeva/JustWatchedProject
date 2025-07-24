@@ -92,10 +92,6 @@ async def login_user(data: LoginRequest):
         error_message = error_data.get("error", {}).get("message", "Invalid credentials")
         print(f"Firebase login error: {error_message}")  # Debug log
         raise HTTPException(status_code=401, detail=error_message)
-    
-    # Check if email is verified
-    if not resp.json().get("emailVerified", False):
-        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox.")
 
     user_id = resp.json().get("localId")
     access_token = create_access_token(user_id)
