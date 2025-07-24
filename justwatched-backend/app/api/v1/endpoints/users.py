@@ -92,9 +92,20 @@ async def create_user_profile(
 async def get_my_profile(current_user=Depends(get_current_user)):
     """Get the current user's profile."""
     user_id = current_user["sub"]
+    email = current_user.get("email", "")
+    
     profile = await user_crud.get_user_profile(user_id)
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        # Return basic profile if none exists
+        return UserProfileResponse(
+            user_id=user_id,
+            email=email,
+            display_name="",  # Empty until profile is created
+            bio=None,
+            color="red",  # Default color
+            created_at=None,
+            updated_at=None
+        )
     return profile
 
 @router.patch("/me", response_model=UserProfileResponse)
