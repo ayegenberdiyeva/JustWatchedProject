@@ -359,7 +359,7 @@ struct ProfileView: View {
                 collectionsData = response
             }
         } catch {
-            print("Error fetching collections: \(error)")
+            // Handle error silently or log to a proper logging system
         }
         
         isLoadingCollections = false

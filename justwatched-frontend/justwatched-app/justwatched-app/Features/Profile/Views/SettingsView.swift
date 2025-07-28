@@ -157,15 +157,6 @@ struct SettingsView: View {
                 
                 // Clear authentication state to trigger navigation to login
                 AuthManager.shared.signOut()
-                
-                // Show success message (optional)
-                print("✅ Account deleted successfully")
-                print("📊 Deletion summary:")
-                print("   - Reviews: \(response.deletion_summary.deleted_items.reviews)")
-                print("   - Collections: \(response.deletion_summary.deleted_items.collections)")
-                print("   - Watchlist items: \(response.deletion_summary.deleted_items.watchlist_items)")
-                print("   - Rooms handled: \(response.deletion_summary.deleted_items.rooms_handled)")
-                print("   - Friendships removed: \(response.deletion_summary.deleted_items.friendships_removed)")
             }
         } catch {
             await MainActor.run {

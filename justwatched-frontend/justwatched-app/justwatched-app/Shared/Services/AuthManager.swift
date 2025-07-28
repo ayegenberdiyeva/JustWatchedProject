@@ -157,6 +157,8 @@ class AuthManager: ObservableObject {
         // Try to get existing profile, create one if it doesn't exist
         do {
             try await refreshUserProfile()
+            // Clear new user flag for existing users
+            UserDefaults.standard.set(false, forKey: "isNewUser")
         } catch {
             // If profile doesn't exist, create one
             if let networkError = error as? NetworkError,
@@ -173,6 +175,8 @@ class AuthManager: ObservableObject {
                         bio: "No bio yet"
                     )
                     await MainActor.run { self.userProfile = profile }
+                    // Mark as new user since profile was created
+                    UserDefaults.standard.set(true, forKey: "isNewUser")
                 } else {
                     throw AuthError.profileNotFound
                 }
@@ -188,20 +192,45 @@ class AuthManager: ObservableObject {
         let auth = try await network.register(email: email, password: password)
         await setTokens(from: auth)
         
-        
         // Use PATCH /api/v1/users/me since POST /api/v1/users fails due to backend architecture
-        let profile = try await network.updateUserProfile(
-            displayName: displayName.isEmpty ? email : displayName,
-            email: email,
-            bio: "No bio yet",
-            color: "red"
-        )
-        await MainActor.run { self.userProfile = profile }
-        print("✅ User profile created successfully")
-        
-        // Fetch the profile to ensure it's properly loaded
-        try await refreshUserProfile()
-        print("✅ Profile fetched and loaded")
+        do {
+            let profile = try await network.updateUserProfile(
+                displayName: displayName.isEmpty ? email : displayName,
+                email: email,
+                bio: "No bio yet",
+                color: "red"
+            )
+            await MainActor.run { self.userProfile = profile }
+            print("✅ User profile created successfully")
+            
+            // Fetch the profile to ensure it's properly loaded
+            try await refreshUserProfile()
+            print("✅ Profile fetched and loaded")
+            
+            // Mark as new user for onboarding
+            UserDefaults.standard.set(true, forKey: "isNewUser")
+        } catch {
+            // Handle 409 conflict specifically
+            if let networkError = error as? NetworkError,
+               case .requestFailed(let statusCode) = networkError,
+               statusCode == 409 {
+                // Clear tokens since registration failed
+                await MainActor.run {
+                    self.jwt = nil
+                    self.userProfile = nil
+                    clearTokens()
+                }
+                throw AuthError.profileConflict("Email or display name already exists. Please try a different one.")
+            } else {
+                // Clear tokens for any other profile creation error
+                await MainActor.run {
+                    self.jwt = nil
+                    self.userProfile = nil
+                    clearTokens()
+                }
+                throw error
+            }
+        }
     }
 
     // func logout() {
@@ -237,6 +266,8 @@ class AuthManager: ObservableObject {
             self.jwt = nil
             self.userProfile = nil
             clearTokens()
+            // Clear new user flag on sign out
+            UserDefaults.standard.set(false, forKey: "isNewUser")
         }
     }
     
@@ -251,6 +282,8 @@ class AuthManager: ObservableObject {
             self.jwt = nil
             self.userProfile = nil
             clearTokens()
+            // Clear new user flag on account deletion
+            UserDefaults.standard.set(false, forKey: "isNewUser")
         }
         
         return response
@@ -260,6 +293,7 @@ class AuthManager: ObservableObject {
         case notAuthenticated
         case invalidCredentials
         case profileNotFound
+        case profileConflict(String) // New case for 409 conflicts
         case networkError(String)
         case accountDeletionFailed(String)
         
@@ -268,6 +302,7 @@ class AuthManager: ObservableObject {
             case .notAuthenticated: return "User is not authenticated."
             case .invalidCredentials: return "Invalid email or password."
             case .profileNotFound: return "User profile not found."
+            case .profileConflict(let message): return "Profile conflict: \(message)"
             case .networkError(let message): return "Network error: \(message)"
             case .accountDeletionFailed(let message): return "Account deletion failed: \(message)"
             }

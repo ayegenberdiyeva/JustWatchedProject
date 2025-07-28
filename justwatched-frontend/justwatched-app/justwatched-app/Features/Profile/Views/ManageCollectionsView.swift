@@ -52,7 +52,7 @@ struct ManageCollectionsView: View {
             } else {
                 VStack(spacing: 16) {
                     // Header
-                    HStack {
+                    HStack(alignment: .top) {
                         Text("Manage Collections")
                             .font(.title2.bold())
                             .foregroundColor(.white)
@@ -70,6 +70,7 @@ struct ManageCollectionsView: View {
                     // Collections List
                     if collections.isEmpty {
                         VStack(spacing: 16) {
+                            Spacer()
                             Image(systemName: "folder")
                                 .font(.system(size: 50))
                                 .foregroundColor(.gray)
@@ -80,6 +81,7 @@ struct ManageCollectionsView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
                                 .multilineTextAlignment(.center)
+                            Spacer()
                         }
                         .padding()
                     } else {
